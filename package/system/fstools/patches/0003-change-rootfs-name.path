@@ -1,0 +1,22 @@
+Index: fstools-2016-01-10/mount_root.c
+===================================================================
+--- fstools-2016-01-10.orig/mount_root.c
++++ fstools-2016-01-10/mount_root.c
+@@ -28,7 +28,7 @@ static int
+ start(int argc, char *argv[1])
+ {
+ 	struct volume *root;
+-	struct volume *data = volume_find("rootfs_data");
++	struct volume *data = volume_find("overlay_volume");
+ 
+ 	if (!getenv("PREINIT"))
+ 		return -1;
+@@ -95,7 +95,7 @@ stop(int argc, char *argv[1])
+ static int
+ done(int argc, char *argv[1])
+ {
+-	struct volume *v = volume_find("rootfs_data");
++	struct volume *v = volume_find("overlay_volume");
+ 
+ 	if (!v)
+ 		return -1;
