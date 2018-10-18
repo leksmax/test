@@ -1,0 +1,53 @@
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -2933,6 +2933,12 @@ ieee80211_rx_h_action(struct ieee80211_r
+ 
+ 			rate_control_rate_update(local, sband, rx->sta,
+ 						 IEEE80211_RC_SMPS_CHANGED);
++			cfg80211_rx_h_action_notify(sdata->dev, rx->sta->addr,
++						    OP_MODE_SMPS_CHANGED,
++						    smps_mode,
++						    rx->sta->sta.bandwidth,
++						    rx->sta->sta.rx_nss,
++						    GFP_KERNEL);
+ 			goto handled;
+ 		}
+ 		case WLAN_HT_ACTION_NOTIFY_CHANWIDTH: {
+@@ -2962,6 +2968,11 @@ ieee80211_rx_h_action(struct ieee80211_r
+ 
+ 			rate_control_rate_update(local, sband, rx->sta,
+ 						 IEEE80211_RC_BW_CHANGED);
++			cfg80211_rx_h_action_notify(sdata->dev, rx->sta->addr,
++						    OP_MODE_BW_CHANGED,
++						    rx->sta->sta.smps_mode,
++						    new_bw, rx->sta->sta.rx_nss,
++						    GFP_KERNEL);
+ 			goto handled;
+ 		}
+ 		default:
+--- a/net/mac80211/vht.c
++++ b/net/mac80211/vht.c
+@@ -452,6 +452,11 @@ u32 __ieee80211_vht_handle_opmode(struct
+ 	if (sta->sta.rx_nss != nss) {
+ 		sta->sta.rx_nss = nss;
+ 		changed |= IEEE80211_RC_NSS_CHANGED;
++		cfg80211_rx_h_action_notify(sdata->dev, sta->addr,
++					    OP_MODE_NSS_CHANGED,
++					    sta->sta.smps_mode,
++					    sta->sta.bandwidth, sta->sta.rx_nss,
++					    GFP_KERNEL);
+ 	}
+ 
+ 	switch (opmode & IEEE80211_OPMODE_NOTIF_CHANWIDTH_MASK) {
+@@ -473,6 +478,11 @@ u32 __ieee80211_vht_handle_opmode(struct
+ 	if (new_bw != sta->sta.bandwidth) {
+ 		sta->sta.bandwidth = new_bw;
+ 		changed |= IEEE80211_RC_BW_CHANGED;
++		cfg80211_rx_h_action_notify(sdata->dev, sta->addr,
++					    OP_MODE_BW_CHANGED,
++					    sta->sta.smps_mode,
++					    sta->sta.bandwidth, sta->sta.rx_nss,
++					    GFP_KERNEL);
+ 	}
+ 
+ 	return changed;

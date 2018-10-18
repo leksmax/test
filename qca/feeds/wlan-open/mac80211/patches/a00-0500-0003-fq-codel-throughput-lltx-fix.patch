@@ -1,0 +1,12 @@
+Index: backports-20171004-3.14.77-c09dbd7/net/mac80211/iface.c
+===================================================================
+--- backports-20171004-3.14.77-c09dbd7.orig/net/mac80211/iface.c
++++ backports-20171004-3.14.77-c09dbd7/net/mac80211/iface.c
+@@ -1325,6 +1325,7 @@ static void ieee80211_if_setup_no_queue(
+ #else
+ 	dev->tx_queue_len = 0;
+ #endif
++	dev->features |= NETIF_F_LLTX;
+ }
+ 
+ static void ieee80211_iface_work(struct work_struct *work)

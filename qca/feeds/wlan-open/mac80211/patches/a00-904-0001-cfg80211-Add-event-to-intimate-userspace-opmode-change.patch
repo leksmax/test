@@ -1,0 +1,157 @@
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -3503,6 +3503,20 @@ enum wiphy_vendor_command_flags {
+ };
+ 
+ /**
++ * enum op_mode_info_flag - opmode information flags
++ *
++ * @OP_MODE_BW_CHANGED: Max Bandwidth that changed in
++ * @OP_MODE_SMPS_CHANGED: The SMPS state of the station changed.
++ * @OP_MODE_NSS_CHANGED: N_SS (number of spatial streams) was changed
++ *	by the peer
++ */
++enum op_mode_info_flag {
++	OP_MODE_BW_CHANGED	= BIT(0),
++	OP_MODE_SMPS_CHANGED	= BIT(1),
++	OP_MODE_NSS_CHANGED	= BIT(2),
++};
++
++/**
+  * struct wiphy_vendor_command - vendor command definition
+  * @info: vendor command identifying information, as used in nl80211
+  * @flags: flags, see &enum wiphy_vendor_command_flags
+@@ -5674,6 +5688,22 @@ void cfg80211_radar_event(struct wiphy *
+ 			  struct cfg80211_chan_def *chandef, gfp_t gfp);
+ 
+ /**
++ * cfg80211_rx_h_action_notify - SMPS mode, rx_nss and bandwidth change event
++ * @dev: network device
++ * @mac: MAC address of a station which SMPS mode got modified
++ * @changed: contains value from &enum op_mode_info_flag
++ * @smps_mode: New SMPS mode of a station
++ * @bw: new max bandwidth value of a station
++ * @rx_nss: new rx_nss value of a station
++ * @gfp: context flags
++ *
++ * This function is called when station's opmode modified via rx_h_action frame.
++ */
++void cfg80211_rx_h_action_notify(struct net_device *dev, u8 *mac,
++				 enum op_mode_info_flag changed,
++				 u8 smps_mode, u8 bw, u8 rx_nss, gfp_t gfp);
++
++/**
+  * cfg80211_cac_event - Channel availability check (CAC) event
+  * @netdev: network device
+  * @chandef: chandef for the current channel
+--- a/include/uapi/linux/nl80211.h
++++ b/include/uapi/linux/nl80211.h
+@@ -983,6 +983,11 @@
+  *	configured PMK for the authenticator address identified by
+  *	&NL80211_ATTR_MAC.
+  *
++ * @NL80211_CMD_RX_H_ACTION_NOTIFY: An event that indicates station's
++ *     ht opmode or vht opmode changes. This will use &NL80211_ATTR_SMPS_MODE,
++ *     &NL80211_ATTR_CHANNEL_WIDTH, &NL80211_ATTR_NSS to indimate the event to
++ *     userspace.
++ *
+  * @NL80211_CMD_MAX: highest used command number
+  * @__NL80211_CMD_AFTER_LAST: internal use
+  */
+@@ -1185,6 +1190,8 @@ enum nl80211_commands {
+ 	NL80211_CMD_SET_PMK,
+ 	NL80211_CMD_DEL_PMK,
+ 
++	NL80211_CMD_RX_H_ACTION_NOTIFY,
++
+ 	/* add new commands above here */
+ 
+ 	/* used to define NL80211_CMD_MAX below */
+@@ -2139,6 +2146,9 @@ enum nl80211_commands {
+  *	the driver or is not needed (because roaming used the Fast Transition
+  *	protocol).
+  *
++ * @NL80211_ATTR_NSS: Station's New/updated  NSS value notified using this
++ *	u8 attribute. This is used with %NL80211_CMD_RX_H_ACTION_NOTIFY.
++ *
+  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
+  * @NL80211_ATTR_MAX: highest attribute number currently defined
+  * @__NL80211_ATTR_AFTER_LAST: internal use
+@@ -2565,6 +2575,7 @@ enum nl80211_attrs {
+ 	NL80211_ATTR_PMKR0_NAME,
+ 	NL80211_ATTR_PORT_AUTHORIZED,
+ 
++	NL80211_ATTR_NSS,
+ 	/* add attributes here, update the policy in nl80211.c */
+ 
+ 	__NL80211_ATTR_AFTER_LAST,
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -420,6 +420,7 @@ static const struct nla_policy nl80211_p
+ 	[NL80211_ATTR_FILS_CACHE_ID] = { .len = 2 },
+ 	[NL80211_ATTR_PMK] = { .type = NLA_BINARY, .len = PMK_MAX_LEN },
+ 	[NL80211_ATTR_SCHED_SCAN_MULTI] = { .type = NLA_FLAG },
++	[NL80211_ATTR_NSS] = { .type = NLA_U8},
+ };
+ 
+ /* policy for the key attributes */
+@@ -14732,6 +14733,59 @@ nl80211_radar_notify(struct cfg80211_reg
+ 	nlmsg_free(msg);
+ }
+ 
++void cfg80211_rx_h_action_notify(struct net_device *dev, u8 *mac,
++				 enum op_mode_info_flag changed,
++				 u8 smps, u8 bw, u8 rx_nss, gfp_t gfp)
++{
++	struct sk_buff *msg;
++	struct wireless_dev *wdev = dev->ieee80211_ptr;
++	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wdev->wiphy);
++	void *hdr;
++
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, gfp);
++	if (!msg)
++		return;
++
++	hdr = nl80211hdr_put(msg, 0, 0, 0, NL80211_CMD_RX_H_ACTION_NOTIFY);
++	if (!hdr) {
++		nlmsg_free(msg);
++		return;
++	}
++
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx))
++		goto nla_put_failure;
++
++	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex))
++		goto nla_put_failure;
++
++	if (mac && nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, mac))
++		goto nla_put_failure;
++
++	if ((changed & OP_MODE_SMPS_CHANGED) &&
++	    nla_put_u8(msg, NL80211_ATTR_SMPS_MODE, smps))
++		goto nla_put_failure;
++
++	if ((changed & OP_MODE_BW_CHANGED) &&
++	    nla_put_u8(msg, NL80211_ATTR_CHANNEL_WIDTH, bw))
++		goto nla_put_failure;
++
++	if ((changed & OP_MODE_NSS_CHANGED) &&
++	    nla_put_u8(msg, NL80211_ATTR_NSS, rx_nss))
++		goto nla_put_failure;
++
++	genlmsg_end(msg, hdr);
++
++	genlmsg_multicast_netns(&nl80211_fam, wiphy_net(&rdev->wiphy), msg, 0,
++				NL80211_MCGRP_MLME, gfp);
++
++	return;
++
++nla_put_failure:
++	genlmsg_cancel(msg, hdr);
++	nlmsg_free(msg);
++}
++EXPORT_SYMBOL(cfg80211_rx_h_action_notify);
++
+ void cfg80211_probe_status(struct net_device *dev, const u8 *addr,
+ 			   u64 cookie, bool acked, gfp_t gfp)
+ {

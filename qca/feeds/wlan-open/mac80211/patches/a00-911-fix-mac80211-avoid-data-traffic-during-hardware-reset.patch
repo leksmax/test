@@ -1,0 +1,22 @@
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -1531,6 +1531,9 @@ static bool ieee80211_queue_skb(struct i
+ 	if (!txqi)
+ 		return false;
+ 
++	if (unlikely(local->in_reconfig))
++		return false;
++
+ 	spin_lock_bh(&fq->lock);
+ 	ieee80211_txq_enqueue(local, txqi, skb);
+ 	spin_unlock_bh(&fq->lock);
+@@ -4510,9 +4513,6 @@ __ieee80211_beacon_get(struct ieee80211_
+ 	txrc.bss = true;
+ 	rate_control_get_rate(sdata, NULL, &txrc);
+ 
+-	if (unlikely(local->in_reconfig))
+-		return false;
+-
+ 	info->control.vif = vif;
+ 
+ 	info->flags |= IEEE80211_TX_CTL_CLEAR_PS_FILT |

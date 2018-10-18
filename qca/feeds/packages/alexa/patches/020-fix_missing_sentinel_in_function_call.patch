@@ -1,0 +1,13 @@
+Index: avs-device-sdk-1.6.0/MediaPlayer/src/MediaPlayer.cpp
+===================================================================
+--- avs-device-sdk-1.6.0.orig/MediaPlayer/src/MediaPlayer.cpp	2018-03-09 10:53:49.000000000 +0530
++++ avs-device-sdk-1.6.0/MediaPlayer/src/MediaPlayer.cpp	2018-03-09 12:40:58.067908173 +0530
+@@ -498,7 +498,7 @@
+     }
+ 
+     // AVS Volume will be between 0 and 100.
+-    settings->volume = static_cast<int8_t>(std::round(avsVolume));
++    settings->volume = static_cast<int8_t>(round(avsVolume));
+     settings->mute = mute;
+ 
+     promise->set_value(true);

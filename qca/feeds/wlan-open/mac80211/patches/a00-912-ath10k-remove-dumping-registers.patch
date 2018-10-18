@@ -1,0 +1,10 @@
+--- a/drivers/net/wireless/ath/ath10k/wmi.c
++++ b/drivers/net/wireless/ath/ath10k/wmi.c
+@@ -1886,7 +1886,6 @@ int ath10k_wmi_cmd_send(struct ath10k *a
+ 
+ 	if (ret) {
+ 		dev_kfree_skb_any(skb);
+-		ath10k_hif_dump_registers(ar);
+ 	}
+ 
+ 	return ret;

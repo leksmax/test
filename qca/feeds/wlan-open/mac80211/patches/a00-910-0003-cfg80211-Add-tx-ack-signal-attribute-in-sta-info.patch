@@ -1,0 +1,46 @@
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -1145,6 +1145,7 @@ struct cfg80211_tid_stats {
+  * @rx_duration: aggregate PPDU duration(usecs) for all the frames from a peer
+  * @pertid: per-TID statistics, see &struct cfg80211_tid_stats, using the last
+  *	(IEEE80211_NUM_TIDS) index for MSDUs not encapsulated in QoS-MPDUs.
++ * @ack_signal: signal strength (in dBm) of the last ACK frame in dBm.
+  */
+ struct station_info {
+ 	u64 filled;
+@@ -1189,6 +1190,7 @@ struct station_info {
+ 	u64 rx_duration;
+ 	u8 rx_beacon_signal_avg;
+ 	struct cfg80211_tid_stats pertid[IEEE80211_NUM_TIDS + 1];
++	s8 ack_signal;
+ };
+ 
+ #if IS_ENABLED(CPTCFG_CFG80211)
+--- a/include/uapi/linux/nl80211.h
++++ b/include/uapi/linux/nl80211.h
+@@ -2896,6 +2896,7 @@ enum nl80211_sta_bss_param {
+  * @NL80211_STA_INFO_RX_DURATION: aggregate PPDU duration for all frames
+  *	received from the station (u64, usec)
+  * @NL80211_STA_INFO_PAD: attribute used for padding for 64-bit alignment
++ * @NL80211_STA_INFO_ACK_SIGNAL: signal strength of the last ACK frame(s32, dBm)
+  * @__NL80211_STA_INFO_AFTER_LAST: internal
+  * @NL80211_STA_INFO_MAX: highest possible station info attribute
+  */
+@@ -2934,6 +2935,7 @@ enum nl80211_sta_info {
+ 	NL80211_STA_INFO_TID_STATS,
+ 	NL80211_STA_INFO_RX_DURATION,
+ 	NL80211_STA_INFO_PAD,
++	NL80211_STA_INFO_ACK_SIGNAL,
+ 
+ 	/* keep last */
+ 	__NL80211_STA_INFO_AFTER_LAST,
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -4419,6 +4419,7 @@ static int nl80211_send_station(struct s
+ 	PUT_SINFO_U64(RX_DROP_MISC, rx_dropped_misc);
+ 	PUT_SINFO_U64(BEACON_RX, rx_beacon);
+ 	PUT_SINFO(BEACON_SIGNAL_AVG, rx_beacon_signal_avg, u8);
++	PUT_SINFO(ACK_SIGNAL, ack_signal, s8);
+ 
+ #undef PUT_SINFO
+ #undef PUT_SINFO_U64

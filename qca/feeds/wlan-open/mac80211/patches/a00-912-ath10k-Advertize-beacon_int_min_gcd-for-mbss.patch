@@ -1,0 +1,18 @@
+--- a/drivers/net/wireless/ath/ath10k/mac.c
++++ b/drivers/net/wireless/ath/ath10k/mac.c
+@@ -7909,6 +7909,7 @@ static const struct ieee80211_iface_comb
+ 		.max_interfaces = 8,
+ 		.num_different_channels = 1,
+ 		.beacon_int_infra_match = true,
++		.beacon_int_min_gcd = 1,
+ #ifdef CPTCFG_ATH10K_DFS_CERTIFIED
+ 		.radar_detect_widths =	BIT(NL80211_CHAN_WIDTH_20_NOHT) |
+ 					BIT(NL80211_CHAN_WIDTH_20) |
+@@ -8038,6 +8039,7 @@ static const struct ieee80211_iface_comb
+ 		.max_interfaces = 16,
+ 		.num_different_channels = 1,
+ 		.beacon_int_infra_match = true,
++		.beacon_int_min_gcd = 1,
+ #ifdef CPTCFG_ATH10K_DFS_CERTIFIED
+ 		.radar_detect_widths =	BIT(NL80211_CHAN_WIDTH_20_NOHT) |
+ 					BIT(NL80211_CHAN_WIDTH_20) |
