@@ -321,7 +321,7 @@
 
 			rootfs@16a0000 {
 				label = "rootfs";
-				reg = <0x1880000 0x1de0000>;
+				reg = <0x16a0000 0x1de0000>;
 			};
 
 			netgear@3480000 {
@@ -334,10 +334,24 @@
 				reg = <0x1480000 0x2000000>;
 			};
 			
-			reserved@7900000 {
-				label = "reserved";
-				reg = <0x7900000 0x0700000>;
-				read-only;
+			crashdump@7900000 {
+				label = "crashdump";
+				reg = <0x7900000 0x0080000>;
+			};
+
+			language@7980000 {
+				label = "language";
+				reg = <0x7980000 0x0380000>;
+			};
+
+			config@7d00000 {
+				label = "config";
+				reg = <0x7d00000 0x0120000>;
+			};
+			
+			pot@7e20000 {
+				label = "pot";
+				reg = <0x7e20000 0x0120000>;
 			};
 		};
 
