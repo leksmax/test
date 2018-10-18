@@ -1,0 +1,18 @@
+Build Instructions
+
+## compile at first time
+
+1. update feeds
+    ./scripts/feeds update -a
+    ./scripts/feeds install -a -f
+
+2. copy default config
+    cp qca/configs/netgear/defconfig-br500 .config
+    make defconfig
+
+##
+
+3. make V=s
+
+4. the final images is  at './bin/ipq806x/' folder
+
