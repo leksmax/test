@@ -158,8 +158,8 @@
 
 			leds_pins: leds_pins {
 				mux {
-					pins = "gpio7", "gpio8", "gpio9", "gpio22", "gpio23",
-						"gpio24","gpio26", "gpio53", "gpio64";
+					pins = "gpio8", "gpio9", "gpio22", "gpio23",
+						"gpio26", "gpio53";
 					function = "gpio";
 					drive-strength = <2>;
 					bias-pull-down;
@@ -395,13 +395,6 @@
 				linux,input-type = <1>;
 				debounce-interval = <60>;
 			};
-			button@2 {
-				label = "wps";
-				linux,code = <KEY_WPS_BUTTON>;
-				gpios = <&qcom_pinmux 65 GPIO_ACTIVE_LOW>;
-				linux,input-type = <1>;
-				debounce-interval = <60>;
-			};
 		};
 		
 		leds {
@@ -409,60 +402,40 @@
 			pinctrl-0 = <&leds_pins>;
 			pinctrl-names = "default";
 
-			led@7 {
-				label = "led_usb1";
-				gpios = <&qcom_pinmux 7 GPIO_ACTIVE_HIGH>;
-				linux,default-trigger = "usbdev";
-				default-state = "off";
-			};
-
-			led@8 {
-				label = "led_usb3";
-				gpios = <&qcom_pinmux 8 GPIO_ACTIVE_HIGH>;
-				linux,default-trigger = "usbdev";
-				default-state = "off";
+			led@53 {
+				label = "power_amber";
+				gpios = <&qcom_pinmux 53 GPIO_ACTIVE_HIGH>;
+				default-state = "off";	
 			};
 
 			led@9 {
-				label = "r7X00:amber:status";
+				label = "power_green";
 				gpios = <&qcom_pinmux 9 GPIO_ACTIVE_HIGH>;
 				default-state = "off";	
 			};
 
+			led@23 {
+				label = "wan1_amber";
+				gpios = <&qcom_pinmux 23 GPIO_ACTIVE_HIGH>;
+				default-state = "off";	
+			};
+
 			led@22 {
-				label = "r7X00:white:internet";
+				label = "wan1_green";
 				gpios = <&qcom_pinmux 22 GPIO_ACTIVE_HIGH>;
 				default-state = "off";	
 			};
 
-			led@23 {
-				label = "r7X00:white:wan";
-				gpios = <&qcom_pinmux 23 GPIO_ACTIVE_HIGH>;
-				default-state = "off";				
-			};
-
-			led@24 {
-				label = "r7X00:white:wps";
-				gpios = <&qcom_pinmux 24 GPIO_ACTIVE_HIGH>;
-				default-state = "off";
+			led@8 {
+				label = "cloud_green";
+				gpios = <&qcom_pinmux 8 GPIO_ACTIVE_HIGH>;
+				default-state = "off";	
 			};
 
 			led@26 {
-				label = "sata_led";
+				label = "vpn_green";
 				gpios = <&qcom_pinmux 26 GPIO_ACTIVE_HIGH>;
-				default-state = "off";
-			};
-
-			led@53 {
-				label = "r7X00:white:power";
-				gpios = <&qcom_pinmux 53 GPIO_ACTIVE_HIGH>;
-				default-state = "off";
-			};
-
-			led@64 {
-				label = "r7X00:white:rfkill";
-				gpios = <&qcom_pinmux 64 GPIO_ACTIVE_HIGH>;
-				default-state = "off";
+				default-state = "off";	
 			};
 		};
 		
