@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
 #define MTD_DEVICE "/dev/mtd3"
 #define MTD_BLOCK_SIZE (128 * 1024) /* NAND Device 128Kib */
@@ -139,7 +140,7 @@ void regstr_fmt(char *prefix, unsigned char *buff, int len)
 {
     uint16_t regcode = 0;
     memcpy(&regcode, buff, sizeof(uint16_t));
-    fprintf(stdout, "REGION: %d\n", regcode);
+    fprintf(stdout, "REGION: 0x%04x\n", ntohs(regcode));
 }
 
 int art_mtd_read(int offset, unsigned char *rbuf, int rlen)
@@ -197,6 +198,7 @@ int main(int argc, char *argv[])
     int ret = 0;
     int mtd_opt = 0;
     struct board_param_t *board;
+    unsigned char buff[128] = {0};
     unsigned char block_buff[MTD_BLOCK_SIZE];
     
     if(argc < 3)
@@ -229,7 +231,9 @@ int main(int argc, char *argv[])
                     return -1;
                 }
 
-                board->result_fmt(board->prefix, block_buff + board->offset, board->len);
+                memcpy(buff, block_buff + board->offset, board->len);
+                
+                board->result_fmt(board->prefix, buff, board->len);
             }
             
             break;
