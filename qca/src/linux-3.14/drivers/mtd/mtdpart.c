@@ -49,6 +49,12 @@ struct mtd_part {
 	struct list_head list;
 };
 
+struct squashfs_super_block {
+	__le32 s_magic;
+	__le32 pad0[9];
+	__le64 bytes_used;
+};
+
 static void mtd_partition_split(struct mtd_info *master, struct mtd_part *part);
 
 /*
@@ -390,6 +396,65 @@ static inline void free_partition(struct mtd_part *p)
 	kfree(p);
 }
 
+static int find_rootfs_header(struct mtd_info *master, struct mtd_info *mtd, uint64_t *offset, int *bad_blocks)
+{
+    struct mtd_part *part = PART(mtd);
+    struct squashfs_super_block sb;
+    int len, res; 
+
+    while (*offset < mtd->size) {
+        if (mtd->_block_isbad && mtd->_block_isbad(mtd, *offset)) {
+            *bad_blocks ++;
+            *offset += mtd->erasesize;
+            continue;
+        }    
+
+        res = master->_read(master, *offset + part->offset, sizeof(sb), &len, (void *) &sb);
+        if ((res && !mtd_is_bitflip(res)) || (len != sizeof(sb))) {
+            printk(KERN_ALERT "%s: error occured while reading from partition \"%s\" of \"%s\"!\n",
+                    __func__, mtd->name, master->name);
+            return -1;
+        }    
+
+        if (SQUASHFS_MAGIC == le32_to_cpu(sb.s_magic)) {
+            printk(KERN_INFO "mtd: find squashfs magic at 0x%llx of \"%s\"\n",
+                    *offset + part->offset, master->name);
+            break;
+        }    
+
+        *offset += mtd->erasesize;
+    }    
+
+    if (*offset >= mtd->size) {
+        printk(KERN_ALERT "%s: no squashfs found in partition \"%s\" of \"%s\"!\n",
+                __func__, mtd->name, master->name);
+        return -1;
+    }    
+
+    return 0;
+}
+
+static void correct_rootfs_partition(struct mtd_part *slave)
+{
+    int bad_blocks = 0;
+    uint64_t rootfs_offset = 0;
+
+    /* Search rootfs header and reset the offset and size of rootfs partition */
+    if (slave->mtd.name && !strcmp(slave->mtd.name, "rootfs") &&
+        !(find_rootfs_header(slave->master, &slave->mtd, &rootfs_offset, &bad_blocks))) {
+
+        slave->offset += rootfs_offset;
+        slave->mtd.size -= rootfs_offset;
+
+        if (slave->master->_block_isbad) {
+            slave->mtd.ecc_stats.badblocks -= bad_blocks;
+        }
+        
+        printk(KERN_INFO "the correct location of partition \"%s\": 0x%012llx-0x%012llx\n", slave->mtd.name,
+               (unsigned long long)slave->offset, (unsigned long long)(slave->offset + slave->mtd.size));
+    }
+}
+
 /*
  * This function unregisters and destroy all slave MTD objects which are
  * attached to the given master MTD object.
@@ -667,6 +732,7 @@ __mtd_add_partition(struct mtd_info *master, const char *name,
 	mutex_unlock(&mtd_partitions_mutex);
 
 	add_mtd_device(&new->mtd);
+    correct_rootfs_partition(new);
 	mtd_partition_split(master, new);
 
 	return ret;
@@ -889,6 +955,7 @@ int add_mtd_partitions(struct mtd_info *master,
 		mutex_unlock(&mtd_partitions_mutex);
 
 		add_mtd_device(&slave->mtd);
+        correct_rootfs_partition(slave);        
 		mtd_partition_split(master, slave);
 
 		cur_offset = slave->offset + slave->mtd.size;
