@@ -402,15 +402,15 @@
 			pinctrl-0 = <&leds_pins>;
 			pinctrl-names = "default";
 
-			led@53 {
+			led@9 {
 				label = "power_amber";
-				gpios = <&qcom_pinmux 53 GPIO_ACTIVE_HIGH>;
+				gpios = <&qcom_pinmux 9 GPIO_ACTIVE_HIGH>;
 				default-state = "off";	
 			};
 
-			led@9 {
+			led@53 {
 				label = "power_green";
-				gpios = <&qcom_pinmux 9 GPIO_ACTIVE_HIGH>;
+				gpios = <&qcom_pinmux 53 GPIO_ACTIVE_HIGH>;
 				default-state = "off";	
 			};
 
