@@ -123,7 +123,7 @@ void ledctrl_set(char *name, int led_color, int led_state)
             color = "green";
             break;
         default:
-            break;
+            return;
     }
 
     snprintf(ledctrl_name, sizeof(ledctrl_name), "%s_%s", name, color);
@@ -136,7 +136,7 @@ void ledctrl_set(char *name, int led_color, int led_state)
         case LED_ON:
             led_on(ledctrl_name);
             break;
-        case LED_BLINK:            
+        case LED_BLINK:
             led_blink(ledctrl_name);
             break;
         case LED_FAST_BLINK:
