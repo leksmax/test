@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2014 OpenWrt.org
+# Copyright (C) 2009-2010 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -8,53 +8,85 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mtd-utils
-PKG_REV:=7d2839b8dede3ae368780364b4a07473d2303219
-PKG_VERSION:=1.5.1
-PKG_RELEASE:=2
+PKG_REV:=7332f1143be4ba8ee2de3096cbd3b03b
+PKG_VERSION:=1.5.0
+PKG_RELEASE:=1
+PKG_INSTALL:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:=git://git.infradead.org/mtd-utils.git
-PKG_SOURCE_BRANCH:=nbd/master
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=$(PKG_REV)
-PKG_MIRROR_MD5SUM:=69b68adcfcbe786584771e5978534ab4
 
-PKG_INSTALL:=1
-
-PKG_BUILD_DEPENDS:=util-linux liblzo zlib
-
-PKG_LICENSE:=GPLv2
-PKG_LICENSE_FILES:=
-
-PKG_MAINTAINER:=John Crispin <blogic@openwrt.org>
+PKG_BUILD_DEPENDS:=util-linux
 
 include $(INCLUDE_DIR)/package.mk
 
-define Package/mtd-utils/Default
+FILES:= \
+	doc_loadbios \
+	docfdisk \
+	flash_erase \
+	flash_eraseall \
+	flash_lock \
+	flash_otp_dump \
+	flash_otp_info \
+	flash_unlock \
+	flashcp \
+	ftl_check \
+	ftl_format \
+	jffs2dump \
+	mtd_debug \
+	mtdinfo \
+	nanddump \
+	nandtest \
+	nandwrite \
+	nftldump \
+	nftl_format \
+	recv_image \
+	rfddump \
+	rfdformat \
+	serve_image \
+	sumtool \
+	ubiattach \
+	ubicrc32 \
+	ubidetach \
+	ubiformat \
+	ubimkvol \
+	ubinfo \
+	ubinize \
+	ubirename \
+	ubirmvol \
+	ubirsvol \
+	ubiupdatevol
+
+define PartGen
+define Package/mtd-utils-$(subst _,-,$(firstword $(subst :, ,$(1))))
+  TITLE:=$(firstword $(subst :, ,$(1))) package from mtd-utils
+  URL:=http://www.linux-mtd.infradead.org/
+  SECTION:=utils
+  CATEGORY:=Utilities
+  DEPENDS:=mtd-utils $(wordlist 2,$(words $(subst :, ,$(1))),$(subst :, ,$(1)))
+endef
+endef
+
+define Package/mtd-utils
+  TITLE:=Utilities for flash info/debug
   SECTION:=utils
   CATEGORY:=Utilities
   URL:=http://www.linux-mtd.infradead.org/
-  DEPENDS:=@NAND_SUPPORT
+  MENU:=1
 endef
 
-define Package/ubi-utils
- $(call Pacakge/mtd-utils/Default)
-  TITLE:=Utilities for ubi info/debug
-endef
-
-define Package/ubi-utils/description
+define Package/mtd-utils/description
   Utilities for manipulating memory technology devices.
 endef
 
-define Package/nand-utils
- $(call Package/mtd-utils/Default)
-   TITLE:=Utilities for nand flash erase/read/write/test
+define Package/mtd-utils/install
+	true
 endef
 
-define Package/nand-utils/description
-  Utilities for NAND devices.
-endef
+$(foreach file,$(FILES),$(eval $(call PartGen,$(file))))
 
 MAKE_FLAGS += \
 	DESTDIR="$(PKG_INSTALL_DIR)" \
@@ -63,19 +95,18 @@ MAKE_FLAGS += \
 	WITHOUT_XATTR=1 \
 	WITHOUT_LZO=1
 
-define Package/ubi-utils/install
-	$(INSTALL_DIR) $(1)/usr/sbin
+define PartInstall
+define Package/mtd-utils-$(subst _,-,$(firstword $(subst :, ,$(1))))/install
+	$(INSTALL_DIR) \
+		$$(1)/usr/sbin
+
 	$(INSTALL_BIN) \
-		$(PKG_INSTALL_DIR)/usr/sbin/{ubiattach,ubicrc32,ubiblock,ubidetach,ubiformat,ubimkvol} $(1)/usr/sbin/
-	$(INSTALL_BIN) \
-		$(PKG_INSTALL_DIR)/usr/sbin/{ubinfo,ubinize,ubirename,ubirmvol,ubirsvol,ubiupdatevol} $(1)/usr/sbin/
+		$(PKG_INSTALL_DIR)/usr/sbin/$(firstword $(subst :, ,$(1))) \
+		$$(1)/usr/sbin/
+endef
 endef
 
-define Package/nand-utils/install
-	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) \
-	$(PKG_INSTALL_DIR)/usr/sbin/{flash_erase,nanddump,nandwrite,nandtest,mtdinfo} $(1)/usr/sbin/
-endef
+$(foreach file,$(FILES),$(eval $(call PartInstall,$(file))))
 
-$(eval $(call BuildPackage,ubi-utils))
-$(eval $(call BuildPackage,nand-utils))
+$(eval $(call BuildPackage,mtd-utils))
+$(foreach file,$(FILES),$(eval $(call BuildPackage,mtd-utils-$(subst _,-,$(firstword $(subst :, ,$(file)))))))
