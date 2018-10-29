@@ -1,0 +1,15 @@
+#!/bin/sh /etc/rc.common
+START=99
+
+start()
+{
+	vpnlogd
+	mqtt-client 
+	mqtt-client -m
+}
+
+stop()
+{
+	killall vpnlogd
+	killall mqtt-client
+}

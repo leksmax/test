@@ -1,0 +1,16 @@
+SUBDIRS=src lib
+
+define build_target
+	for subdir in $(SUBDIRS); \
+	do \
+		make -C $$subdir $1; \
+	done
+endef
+
+all:
+	$(call build_target, $@)
+
+clean:
+	$(call build_target, $@)
+
+.PHONY:all clean

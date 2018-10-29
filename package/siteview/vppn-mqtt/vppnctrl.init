@@ -1,0 +1,22 @@
+#!/bin/sh /etc/rc.common
+START=99
+
+MAX_TUNNEL_NUM=5
+
+start()
+{
+	cp /etc/netwall_script.sh /tmp/netwall_script.sh
+	vppnconfig loadconfig vppn
+	for i in $(seq ${MAX_TUNNEL_NUM}); do
+		vppnctrl -t $(( i - 1 )) -c vppn run
+	done
+	#/usr/sbin/vpnmonitor
+	#vpnctrl dns_report
+}
+
+stop()
+{
+	for i in $(seq ${MAX_TUNNEL_NUM}); do
+		vppnctrl -t $(( i - 1 )) -c vppn kill
+	done
+}

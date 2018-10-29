@@ -1,0 +1,88 @@
+#! /bin/sh
+
+if [ "$1" == "start" ]; then
+	/usr/sbin/iptables -I INPUT -i site0 -j ACCEPT
+	/usr/sbin/iptables -I INPUT -i site1 -j ACCEPT
+	/usr/sbin/iptables -I INPUT -i site2 -j ACCEPT
+	/usr/sbin/iptables -I INPUT -i site3 -j ACCEPT
+	/usr/sbin/iptables -I INPUT -i site4 -j ACCEPT
+
+	/usr/sbin/iptables -I common -i site0 -j ACCEPT
+	/usr/sbin/iptables -I common -i site1 -j ACCEPT
+	/usr/sbin/iptables -I common -i site2 -j ACCEPT
+	/usr/sbin/iptables -I common -i site3 -j ACCEPT
+	/usr/sbin/iptables -I common -i site4 -j ACCEPT
+
+	/usr/sbin/iptables -I common -o site0 -j ACCEPT
+	/usr/sbin/iptables -I common -o site1 -j ACCEPT
+	/usr/sbin/iptables -I common -o site2 -j ACCEPT
+	/usr/sbin/iptables -I common -o site3 -j ACCEPT
+	/usr/sbin/iptables -I common -o site4 -j ACCEPT
+
+	/usr/sbin/iptables -t nat -I POSTROUTING -o site0 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I POSTROUTING -o site1 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I POSTROUTING -o site2 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I POSTROUTING -o site3 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I POSTROUTING -o site4 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I br0_masq -s 10.100.16.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I br0_masq -s 10.100.17.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I br0_masq -s 10.100.18.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I br0_masq -s 10.100.19.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I br0_masq -s 10.100.20.0/24 -j MASQUERADE
+
+	/usr/sbin/iptables -t nat -I brwan_masq -s 10.100.16.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I brwan_masq -s 10.100.17.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I brwan_masq -s 10.100.18.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I brwan_masq -s 10.100.19.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I brwan_masq -s 10.100.20.0/24 -j MASQUERADE
+
+	/usr/sbin/iptables -t nat -I ppp0_masq -s 10.100.16.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I ppp0_masq -s 10.100.17.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I ppp0_masq -s 10.100.18.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I ppp0_masq -s 10.100.19.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -I ppp0_masq -s 10.100.20.0/24 -j MASQUERADE
+fi
+
+if [ $1 == "stop" ]; then
+
+	/usr/sbin/iptables -D INPUT -i site0 -j ACCEPT
+	/usr/sbin/iptables -D INPUT -i site1 -j ACCEPT
+	/usr/sbin/iptables -D INPUT -i site2 -j ACCEPT
+	/usr/sbin/iptables -D INPUT -i site3 -j ACCEPT
+	/usr/sbin/iptables -D INPUT -i site4 -j ACCEPT
+
+	/usr/sbin/iptables -D common -i site0 -j ACCEPT
+	/usr/sbin/iptables -D common -i site1 -j ACCEPT
+	/usr/sbin/iptables -D common -i site2 -j ACCEPT
+	/usr/sbin/iptables -D common -i site3 -j ACCEPT
+	/usr/sbin/iptables -D common -i site4 -j ACCEPT
+
+	/usr/sbin/iptables -D common -o site0 -j ACCEPT
+	/usr/sbin/iptables -D common -o site1 -j ACCEPT
+	/usr/sbin/iptables -D common -o site2 -j ACCEPT
+	/usr/sbin/iptables -D common -o site3 -j ACCEPT
+	/usr/sbin/iptables -D common -o site4 -j ACCEPT
+
+	/usr/sbin/iptables -t nat -D POSTROUTING -o site0 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D POSTROUTING -o site1 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D POSTROUTING -o site2 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D POSTROUTING -o site3 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D POSTROUTING -o site4 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D br0_masq -s 10.100.16.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D br0_masq -s 10.100.17.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D br0_masq -s 10.100.18.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D br0_masq -s 10.100.19.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D br0_masq -s 10.100.20.0/24 -j MASQUERADE
+
+	/usr/sbin/iptables -t nat -D brwan_masq -s 10.100.16.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D brwan_masq -s 10.100.17.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D brwan_masq -s 10.100.18.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D brwan_masq -s 10.100.19.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D brwan_masq -s 10.100.20.0/24 -j MASQUERADE
+
+	/usr/sbin/iptables -t nat -D ppp0_masq -s 10.100.16.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D ppp0_masq -s 10.100.17.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D ppp0_masq -s 10.100.18.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D ppp0_masq -s 10.100.19.0/24 -j MASQUERADE
+	/usr/sbin/iptables -t nat -D ppp0_masq -s 10.100.20.0/24 -j MASQUERADE
+fi
