@@ -1190,7 +1190,6 @@ void random_id_init(char* out_buf, int save_config)
 	return;
 }
 
-#if 1
 cJSON* get_br500_lan_subnets(int* subnet_cnt)
 {
 	cJSON* ret = NULL;
@@ -1263,6 +1262,7 @@ cJSON* get_all_lan_subnets()
 	return ret;
 }
 
+#if 0
 void set_br500_lan_subnet(cJSON* new_subnet)
 {
 	cJSON* lan_name_item = cJSON_GetObjectItem(new_subnet, "lan_name");
@@ -1362,6 +1362,89 @@ void set_lan_subnets(cJSON* new_subnets)
 	{
 		cJSON* new_subnet = cJSON_GetArrayItem(new_subnets, i);
 		set_br500_lan_subnet(new_subnet);
+	}
+	return;
+}
+#else
+void set_br500_lan_subnet(cJSON* new_subnet, cJSON* old_subnets)
+{
+	cJSON* lan_name_item = cJSON_GetObjectItem(new_subnet, "lan_name");
+	cJSON* lan_subnet_item = cJSON_GetObjectItem(new_subnet, "lan_subnet");
+	if (lan_name_item && lan_subnet_item && old_subnets)
+	{
+		int old_cnt = cJSON_GetArraySize(old_subnets);
+		int i;
+		int id;
+		char subnet_str[100] = "";
+		char ipaddr_buf[100] = "";
+		char netmask_buf[100] = "";
+		char dhcp_start_buf[100] = "";
+		char dhcp_end_buf[100] = "";
+		net_tool_subnet_to_ipmask(subnet_str, ipaddr_buf, netmask_buf);
+		net_tool_get_ip_from_subnet(subnet_str, 2, dhcp_start_buf);
+		net_tool_get_ip_from_subnet(subnet_str, 254, dhcp_end_buf);
+		strcpy(subnet_str, lan_subnet_item->valuestring);
+
+		sscanf(lan_name_item->valuestring, "lan%d", &id);
+		for(i = 0; i < old_cnt; i++)
+		{
+			cJSON* old_subnet_item = cJSON_GetArrayItem(old_subnets, i);
+			cJSON* old_id_item = cJSON_GetObjectItem(old_subnet_item, "id");
+			cJSON* old_name_item = cJSON_GetObjectItem(old_subnet_item, "name");
+			//cJSON* old_ipaddr_item = cJSON_GetObjectItem(old_subnet_item, "ipaddr");
+			//cJSON* old_netmask_item = cJSON_GetObjectItem(old_subnet_item, "netmask");
+			cJSON* old_dhcp_enable_item = cJSON_GetObjectItem(old_subnet_item, "dhcp_enable");
+			//cJSON* old_dhcp_start_item = cJSON_GetObjectItem(old_subnet_item, "dhcp_start");
+			//cJSON* old_dhcp_end_item = cJSON_GetObjectItem(old_subnet_item, "dhcp_end");
+			cJSON* old_macaddr_item = cJSON_GetObjectItem(old_subnet_item, "macaddr");
+			cJSON* old_vlanid_item = cJSON_GetObjectItem(old_subnet_item, "vlanid");
+			cJSON* old_desc_item = cJSON_GetObjectItem(old_subnet_item, "desc");
+			if (id == old_id_item->valueint)
+			{
+				cJSON *cmd_param = cJSON_CreateObject();
+				if (cmd_param)
+				{
+					cJSON* obj = cJSON_CreateObject();
+					cJSON_AddNumberToObject(obj, "id", old_id_item->valueint);
+					cJSON_AddStringToObject(obj, "name", old_name_item->valuestring);
+					cJSON_AddStringToObject(obj, "ipaddr", ipaddr_buf);
+					cJSON_AddStringToObject(obj, "netmask", netmask_buf);
+					cJSON_AddNumberToObject(obj, "dhcp_enable", old_dhcp_enable_item->valueint);
+					cJSON_AddStringToObject(obj, "dhcp_start", dhcp_start_buf);
+					cJSON_AddStringToObject(obj, "dhcp_end", dhcp_end_buf);
+					cJSON_AddStringToObject(obj, "macaddr", old_macaddr_item->valuestring);
+					cJSON_AddNumberToObject(obj, "vlanid", old_vlanid_item->valueint);
+					cJSON_AddStringToObject(obj, "desc", old_desc_item->valuestring);
+					cJSON_AddItemToObject(cmd_param, "subnet", obj);
+					char* param_str = cJSON_PrintUnformatted(cmd_param);
+					if (param_str)
+					{
+						char cmd_buf[1024] = "";
+						sprintf(cmd_buf, "network.cli lan_subnet_edit '%s'", param_str);
+						system(cmd_buf);
+						free(param_str);
+					}
+					cJSON_Delete(cmd_param);
+				}
+			}
+		}
+	}
+	return;
+}
+
+void set_lan_subnets(cJSON* new_subnets)
+{
+	int cnt = cJSON_GetArraySize(new_subnets);
+	cJSON* old_subnets = get_all_lan_subnets();
+	int i;
+	for(i = 0; i < cnt; i++)
+	{
+		cJSON* new_subnet = cJSON_GetArrayItem(new_subnets, i);
+		set_br500_lan_subnet(new_subnet, old_subnets);
+	}
+	if (old_subnets)
+	{
+		cJSON_Delete(old_subnets);
 	}
 	return;
 }
