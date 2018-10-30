@@ -16,6 +16,7 @@ PKG_SOURCE_URL:=http://www.tinc-vpn.org/packages
 #PKG_MD5SUM:=e6e462fa71de11dc6a3e83c2a53dda96
 PKG_MD5SUM:=40875ace34f3b434ba6ae13c54e76831
 
+PKG_FIXUP:=autoreconf
 PKG_INSTALL:=1
 
 include $(INCLUDE_DIR)/package.mk
