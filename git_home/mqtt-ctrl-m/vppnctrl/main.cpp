@@ -443,6 +443,7 @@ int set_members_conf(cJSON* members, char* teamid, char* self_id, int tunnel_id,
 			cJSON* ip_item = cJSON_GetObjectItem(item, "ip");
 			cJSON* mac_item = cJSON_GetObjectItem(item, "mac");
 			cJSON* status_item = cJSON_GetObjectItem(item, "status");
+			cJSON* memberType_item = cJSON_GetObjectItem(item, "memberType");
 			cJSON* geoip_item = cJSON_GetObjectItem(item, "geo_ip");
 			cJSON* wanip_item = cJSON_GetObjectItem(item, "wan_ip");
 			cJSON* pubkey_item = cJSON_GetObjectItem(item, "pubkey");
@@ -464,9 +465,10 @@ int set_members_conf(cJSON* members, char* teamid, char* self_id, int tunnel_id,
 					}
 				}
 
-				if (status_item)
+				if (memberType_item)
 				{
-					if (status_item->valueint == 1)
+					//if member is a router, then should be connected by public address
+					if (memberType_item->valueint == 0)
 					{
 						cJSON_AddNumberToObject(new_item, "peer_status", 1);
 					}
@@ -499,10 +501,6 @@ int set_members_conf(cJSON* members, char* teamid, char* self_id, int tunnel_id,
 					{
 						tunnel->tunnel_public = 1;
 					}
-				}
-				if (status_item)
-				{
-					//log_tool_log("Get self virtual ip:%s", ip_item->valuestring);
 				}
 				ret = 0;
 			}
@@ -999,7 +997,7 @@ void append_tinc_hosts_file(char* host_dir, cJSON* peers)
 	{
 		char name[100];
 		char host_file[100];
-		char content[200];
+		char content[2000];
 		cJSON* peer = cJSON_GetArrayItem(peers, i);
 		cJSON* peer_vip_item = cJSON_GetObjectItem(peer, "peer_vip");
 		cJSON* peer_wan_ip_item = cJSON_GetObjectItem(peer, "peer_wan_ip");

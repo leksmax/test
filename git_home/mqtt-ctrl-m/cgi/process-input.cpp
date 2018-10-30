@@ -44,6 +44,7 @@ cJSON* handle_get_vpn_status(char* cloud_host, int cloud_port)
 	{
 		cJSON_AddStringToObject(ret, "code", "201");
 	}
+#if 0
 	cJSON* response2 = vpn_cloud_tool3((char*)"/vppn/api/v1/client/searchTeam", req2);
 	if (response2)
 	{
@@ -51,6 +52,7 @@ cJSON* handle_get_vpn_status(char* cloud_host, int cloud_port)
 		cJSON_AddItemToObject(ret, "have_teams",  cJSON_Duplicate(teams_item, 1));
 		cJSON_Delete(response2);
 	}
+#endif
 	cJSON_AddStringToObject(ret, "cur_team", my_teamid);
 	if (on)
 	{

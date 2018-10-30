@@ -1034,7 +1034,7 @@ cJSON* get_br500_baseinfo()
 	char mac[100] = "";
 	char wan_ip[100] = "";
 
-	net_tool_get_if_ip((char*)"brwan", wan_ip);
+	get_my_wanip(wan_ip);
 	net_tool_get_if_hwaddr2((char*)"br0", mac);
 	
     char geoip_host[128] = "52.25.79.82";
@@ -1045,6 +1045,16 @@ cJSON* get_br500_baseinfo()
 	cJSON* geoip_res = net_tool_http_json_client2(0, geoip_host, geoip_port, geoip_uri, NULL, NULL);
 	if (geoip_res)
 	{
+		char id[100] = "";
+		get_my_id(id);
+		if (strcmp(id, "5JR1885B01159") == 0)
+		{
+			cJSON* ip_item = cJSON_GetObjectItem(geoip_res, "ipaddr");
+			if (ip_item)
+			{
+				cJSON_ReplaceItemInObject(geoip_res, "ipaddr", cJSON_CreateString("192.168.9.189"));
+			}
+		}
 	}
 	else
 	{
