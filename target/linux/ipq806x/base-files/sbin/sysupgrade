@@ -1,0 +1,8 @@
+#!/bin/sh
+
+. /lib/upgrade/netgear.sh
+
+export IMAGE_FILE=$1
+export DELAY=
+
+run_ramfs '. /lib/upgrade/netgear.sh; dni_upgrade'
