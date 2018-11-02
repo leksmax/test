@@ -20,12 +20,17 @@ define Build/Prepare
 	$(CP) ./src/* $(PKG_BUILD_DIR)
 endef
 
+define Build/Compile
+endef
+
 define Package/webcgi/install
+	$(INSTALL_DIR) $(1)/www
+	$(CP) ./files/upload.html $(1)/www/
 	$(INSTALL_DIR) $(1)/www/cgi-bin
-	$(CP) $(PKG_BUILD_DIR)/*.cgi $(1)/www/cgi-bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/web-cgi $(1)/www/cgi-bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/upgrade.cgi $(1)/www/cgi-bin/
 	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/web-cgi $(1)/usr/sbin/
-	$(CP) $(PKG_BUILD_DIR)/*.cli $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/network.cli $(1)/usr/sbin/
 endef
 
 $(eval $(call BuildPackage,webcgi))
