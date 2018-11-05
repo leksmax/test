@@ -36,7 +36,8 @@ int main(int argc, char *argv[])
     char *value = NULL;
     char buff[CONFIG_MAX_VALUE_LEN] = {0};
 
-    if (argc < 2) {
+    if (argc < 2) 
+    {
         usages();
     }
 

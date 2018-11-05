@@ -94,7 +94,7 @@ int get_image_hdr(struct dni_hdr *hdr, char *buff, int buff_len)
         hdr->version, hdr->hw_id);
     if(ret != 3)
     {
-        snprintf(errMsg, sizeof(errMsg), "get image hdr failed!\n");
+        snprintf(errMsg, sizeof(errMsg), "get image hdr failed!");
         return -1;
     }
 
@@ -118,7 +118,7 @@ int img_check(struct dni_hdr *hdr, char *buff, int len)
 
     if((0xFF - cksum) != hdr->cksum)
     {
-        snprintf(errMsg, sizeof(errMsg), "image cksum failed!\n");
+        snprintf(errMsg, sizeof(errMsg), "image cksum failed!");
         return -1;
     }
 
@@ -130,7 +130,7 @@ int img_check(struct dni_hdr *hdr, char *buff, int len)
 
     if(strcasecmp(device, hdr->device) != 0)
     {
-        snprintf(errMsg, sizeof(errMsg), "board id missmatch!\n");
+        snprintf(errMsg, sizeof(errMsg), "board id missmatch!");
         return -1;
     }
 
@@ -142,7 +142,7 @@ int img_check(struct dni_hdr *hdr, char *buff, int len)
 
     if(strcasecmp(hw_id, hdr->hw_id) != 0)
     {
-        snprintf(errMsg, sizeof(errMsg), "board hw id missmatch!\n");
+        snprintf(errMsg, sizeof(errMsg), "board hw id missmatch!");
         return -1;
     }
 

@@ -63,18 +63,21 @@ int sys_exec(const char *fmt, ...)
 
 char *config_get(const char *name)
 {
-    int ret = -1;
+    int ret = -1;    
     struct uci_context *ctx = NULL;
     struct uci_ptr ptr;
-    char path[CONFIG_MAX_PARAM_LEN] = {0};
-    static char cfg_cache[CONFIG_MAX_VALUE_LEN] = {0};
-
+    char path[CONFIG_MAX_PARAM_LEN];
+    static char cfg_cache[CONFIG_MAX_VALUE_LEN];
+    
+    memset(path, 0x0, CONFIG_MAX_PARAM_LEN);
+    memset(cfg_cache, 0x0, CONFIG_MAX_VALUE_LEN);
+    
     snprintf(path, CONFIG_MAX_PARAM_LEN, "%s.dni.%s", SECTION_NAME, name);
 
     ctx = uci_alloc_context();
     if (!ctx)
     {
-        return "";
+        return cfg_cache;
     }
 
     ret = uci_lookup_ptr(ctx, &ptr, path, true);
@@ -125,5 +128,5 @@ int config_commit()
 
 int config_uncommit()
 {
-    return sys_exec("uci revert %s", CONFIG_FILE);        
+    return sys_exec("uci revert %s", CONFIG_FILE);
 }

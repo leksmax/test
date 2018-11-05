@@ -173,24 +173,24 @@ int main( int argc, const char *argv[] )
 	{
 		for(i = 1; i < argc; i ++)
 		{            
-		    if(!strcmp(argv[i], "init"))
+		    if (!strcmp(argv[i], "init"))
             {
                 ret = do_init(nvram);
                 done ++;
             }      
-			else if(!strcmp(argv[i], "show"))
+			else if (!strcmp(argv[i], "show"))
 			{
 				ret = do_show(nvram);
 				done ++;
 			}
-			else if(!strcmp(argv[i], "info"))
+			else if (!strcmp(argv[i], "info"))
 			{
 				ret = do_info(nvram);
 				done ++;
 			}
-			else if(!strcmp(argv[i], "get") || !strcmp(argv[i], "unset") || !strcmp(argv[i], "set"))
+			else if (!strcmp(argv[i], "get") || !strcmp(argv[i], "unset") || !strcmp(argv[i], "set"))
 			{
-				if((i + 1) < argc)
+				if ((i + 1) < argc)
 				{
 					switch(argv[i ++][0])
 					{
@@ -213,7 +213,7 @@ int main( int argc, const char *argv[] )
 					break;
 				}
 			}
-			else if(!strcmp(argv[i], "commit"))
+			else if (!strcmp(argv[i], "commit"))
 			{
 				commit = 1;
 				done ++;
