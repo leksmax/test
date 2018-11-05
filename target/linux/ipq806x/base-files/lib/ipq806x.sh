@@ -44,8 +44,11 @@ ipq806x_board_detect() {
 	*"AP160-2XX")
 		name="ap160_2xx"
 		;;
-    *"Router 500")
-        name="br500"
+    	*"R7800")
+	        name="r7800"
+        ;;
+	*"Router 500")
+        	name="br500"
         ;;
 	*"STORM")
 		name="storm"

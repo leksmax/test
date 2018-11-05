@@ -16,6 +16,7 @@ ucidef_set_interface_loopback
 board=$(ipq806x_board_name)
 
 case "$board" in
+r7800|\
 br500)
 	ucidef_set_interfaces_lan_wan "eth1" "eth0"
 	ucidef_add_switch "switch0" "1" "1"

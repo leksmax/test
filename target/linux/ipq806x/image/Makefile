@@ -48,6 +48,10 @@ define MkImageLzma
 		-d $(1) $(2)
 endef
 
+define Image/Build/NETGEAR_R7800
+	echo "Image/Build/NETGEAR_R7800"
+endef
+
 define Image/Build/NETGEAR_BR500
 	echo "Image/Build/NETGEAR_BR500"
 	dd if=$(KDIR)/uImage of=$(KDIR)/vmlinux-$(2).uImage

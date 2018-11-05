@@ -158,12 +158,12 @@ $(eval $(call Profile,QSDK_Open))
 
 define Profile/QSDK_Premium
 	NAME:=Qualcomm-Atheros SDK Premium Profile
-	PACKAGES:=$(OPENWRT_STANDARD) $(NSS_COMMON) $(NSS_STANDARD) $(SWITCH_SSDK_NOHNAT_PKGS) \
-		$(STORAGE) $(CD_ROUTER) \
+	PACKAGES:=$(OPENWRT_STANDARD) $(NSS_COMMON) $(NSS_STANDARD) $(SWITCH_SSDK_PKGS) \
+		$(WIFI_PKGS) $(WIFI_10_4_FW_PKGS) $(STORAGE) $(CD_ROUTER) \
 		$(NETWORKING) $(UTILS) $(SHORTCUT_FE) $(HW_CRYPTO) $(QCA_RFS) \
-		$(IPSEC) $(QOS) $(QCA_ECM_PREMIUM) \
+		$(AUDIO) $(VIDEO) $(IGMPSNOOING_RSTP) $(IPSEC) $(QOS) $(QCA_ECM_PREMIUM) \
 		$(NSS_MACSEC) $(TEST_TOOLS) $(NSS_CRYPTO) $(NSS_CLIENTS) $(COREBSP_UTILS) \
-		$(MAP_PKGS) $(AQ_PHY) $(FAILSAFE)
+		$(MAP_PKGS) $(HYFI) $(AQ_PHY) $(FAILSAFE) kmod-art2
 endef
 
 define Profile/QSDK_Premium/Description
@@ -252,6 +252,23 @@ $(eval $(call Profile,QSDK_Deluxe_Temp))
 #
 # NETGEAR Profile
 #
+
+define Profile/NETGEAR_R7800
+	NAME:=Netgear Nighthawk X4S R7800 Profile
+	PACKAGES:=$(OPENWRT_STANDARD) $(NSS_COMMON) $(NSS_STANDARD) $(SWITCH_SSDK_NOHNAT_PKGS) \
+		$(WIFI_PKGS) $(WIFI_10_4_FW_PKGS) $(STORAGE) $(CD_ROUTER) \
+		$(NETWORKING) $(UTILS) $(SHORTCUT_FE) $(HW_CRYPTO) $(QCA_RFS) \
+		$(IGMPSNOOING_RSTP) $(IPSEC) $(QOS) $(QCA_ECM_PREMIUM) \
+		$(NSS_MACSEC) $(TEST_TOOLS) $(NSS_CRYPTO) $(NSS_CLIENTS) $(COREBSP_UTILS) \
+		$(MAP_PKGS) $(AQ_PHY) $(FAILSAFE) kmod-art2
+endef
+
+define Profile/NETGEAR_R7800/Description
+	NETGEAR R7800 package set configuration.
+	Enables qca-wifi packages
+endef
+
+$(eval $(call Profile,NETGEAR_R7800))
 
 define Profile/NETGEAR_BR500
 	NAME:=Netgear Business Router 500 Profile
