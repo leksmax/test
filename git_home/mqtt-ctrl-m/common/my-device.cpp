@@ -327,7 +327,7 @@ void get_my_id(char* id)
 	}
 #else
 	char ret_buf[100] = "";
-	net_tool_get_if_hwaddr((char*)"br0", ret_buf);
+	net_tool_get_if_hwaddr((char*)"br-lan", ret_buf);
 	strcpy(id, ret_buf);
 #endif
 }
@@ -396,7 +396,7 @@ void set_vppn_status(int status)
 void get_my_lansubnet(char* lan_subnet)
 {
 	char buf[100];
-	int ret = net_tool_get_if_subnet((char*)"br0", buf);
+	int ret = net_tool_get_if_subnet((char*)"br-lan", buf);
 	if (ret == 0)
 	{
 		strcpy(lan_subnet, buf);
@@ -411,38 +411,14 @@ void get_my_lansubnet(char* lan_subnet)
 int get_br500_wan_subnet(char* ret_buf)
 {
 	int ret = -1;
-	char wan_proto[100] = "";
-	system_config_get("wan_proto", wan_proto);
-	if ((strcmp(wan_proto, "dhcp") == 0)
-			||
-			(strcmp(wan_proto, "static") == 0)
-			)
-	{
-		ret = net_tool_get_if_subnet((char*)"brwan", ret_buf);
-	}
-	else
-	{
-		ret = net_tool_get_if_subnet((char*)"ppp0", ret_buf);
-	}
+	ret = net_tool_get_if_subnet((char*)"eth0", ret_buf);
 	return ret;
 }
 
 int get_br500_wan_ip(char* ret_buf)
 {
 	int ret = -1;
-	char wan_proto[100] = "";
-	system_config_get("wan_proto", wan_proto);
-	if ((strcmp(wan_proto, "dhcp") == 0)
-			||
-			(strcmp(wan_proto, "static") == 0)
-			)
-	{
-		ret = net_tool_get_if_ip((char*)"brwan", ret_buf);
-	}
-	else
-	{
-		ret = net_tool_get_if_ip((char*)"ppp0", ret_buf);
-	}
+	ret = net_tool_get_if_ip((char*)"eth0", ret_buf);
 	return ret;
 }
 
@@ -456,7 +432,7 @@ int get_br500_wan_mac(char* ret_buf)
 			(strcmp(wan_proto, "static") == 0)
 			)
 	{
-		ret = net_tool_get_if_hwaddr2((char*)"brwan", ret_buf);
+		ret = net_tool_get_if_hwaddr2((char*)"eth0", ret_buf);
 	}
 	else
 	{
@@ -942,7 +918,7 @@ cJSON* get_my_device_info()
 
 	/* LAN MAC address */
 	char lan_mac[100] = "";
-	net_tool_get_if_hwaddr2((char*)"br0", lan_mac);
+	net_tool_get_if_hwaddr2((char*)"br-lan", lan_mac);
 	cJSON_AddStringToObject(obj, "lan_mac", lan_mac);
 	/* WAN MAC address */
 	char wan_mac[100] = "";
@@ -952,7 +928,7 @@ cJSON* get_my_device_info()
 
 	/* LAN IP address */
 	char lan_ip[100] = "";
-	net_tool_get_if_ip((char*)"br0", lan_ip);
+	net_tool_get_if_ip((char*)"br-lan", lan_ip);
 	cJSON_AddStringToObject(obj, "lan_ip", lan_ip);
 
 	cJSON* lan_subnets = get_all_lan_subnets();
@@ -1035,7 +1011,7 @@ cJSON* get_br500_baseinfo()
 	char wan_ip[100] = "";
 
 	get_my_wanip(wan_ip);
-	net_tool_get_if_hwaddr2((char*)"br0", mac);
+	net_tool_get_if_hwaddr2((char*)"br-lan", mac);
 	
     char geoip_host[128] = "52.25.79.82";
 	int geoip_port = 10000;

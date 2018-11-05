@@ -910,12 +910,12 @@ cJSON* handle_server_topic_monitor_equipmentInfo(cJSON* req_json, char* req_topi
 	cJSON_AddStringToObject(message_item, "type", "Router");
     /* MAC address */
 	char mac[100] = "";
-	net_tool_get_if_hwaddr((char*)"br0", mac);
+	net_tool_get_if_hwaddr((char*)"br-lan", mac);
 	cJSON_AddStringToObject(message_item, "mac", mac);
 
 	/* IP address */
 	char ip[100] = "";
-	net_tool_get_if_ip((char*)"br0", ip);
+	net_tool_get_if_ip((char*)"br-lan", ip);
 	cJSON_AddStringToObject(message_item, "ip", ip);
 
     /* wan MAC address */

@@ -668,9 +668,9 @@ void ctrl_write_firewall_script(char *peers_file)
 			"if [ \"$1\" == \"start\" ]; then\n"
 			"\t/usr/sbin/iptables -I INPUT -i site0 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -I OUTPUT -o site0 -j ACCEPT\n"
-			"\t/usr/sbin/iptables -I INPUT -i brwan -p udp --dport 3277 -j ACCEPT\n"
+			"\t/usr/sbin/iptables -I INPUT -i eth0 -p udp --dport 3277 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -I INPUT -i ppp0 -p udp --dport 3277 -j ACCEPT\n"
-			"\t/usr/sbin/iptables -I INPUT -i brwan -p tcp --dport 3277 -j ACCEPT\n"
+			"\t/usr/sbin/iptables -I INPUT -i eth0 -p tcp --dport 3277 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -I INPUT -i ppp0 -p tcp --dport 3277 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -I FORWARD -i site0 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -I FORWARD -o site0 -j ACCEPT\n"
@@ -689,12 +689,12 @@ void ctrl_write_firewall_script(char *peers_file)
 			if (peer_vip_item)
 			{
 				sprintf(buf,
-						"\t/usr/sbin/iptables -t nat -I br0_masq -s %s/32 -j MASQUERADE\n"
+						"\t/usr/sbin/iptables -t nat -I POSTROUTING -o br-lan -s %s/32 -j MASQUERADE\n"
 						"\t/usr/sbin/iptables -t nat -I POSTROUTING -o br1 -s %s/32 -j MASQUERADE\n"
 						"\t/usr/sbin/iptables -t nat -I POSTROUTING -o br2 -s %s/32 -j MASQUERADE\n"
 						"\t/usr/sbin/iptables -t nat -I POSTROUTING -o br3 -s %s/32 -j MASQUERADE\n"
-						"\t/usr/sbin/iptables -t nat -I brwan_masq -s %s/32 -j MASQUERADE\n"
-						"\t/usr/sbin/iptables -t nat -I ppp0_masq -s %s/32 -j MASQUERADE\n",
+						"\t/usr/sbin/iptables -t nat -I POSTROUTING -o eth0 -s %s/32 -j MASQUERADE\n"
+						"\t/usr/sbin/iptables -t nat -I POSTROUTING -o ppp0 -s %s/32 -j MASQUERADE\n",
 						peer_vip_item->valuestring,
 						peer_vip_item->valuestring,
 						peer_vip_item->valuestring,
@@ -715,9 +715,9 @@ void ctrl_write_firewall_script(char *peers_file)
 			"if [ \"$1\" == \"stop\" ]; then\n"
 			"\t/usr/sbin/iptables -D INPUT -i site0 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -D OUTPUT -o site0 -j ACCEPT\n"
-			"\t/usr/sbin/iptables -D INPUT -i brwan -p udp --dport 3277 -j ACCEPT\n"
+			"\t/usr/sbin/iptables -D INPUT -i eth0 -p udp --dport 3277 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -D INPUT -i ppp0 -p udp --dport 3277 -j ACCEPT\n"
-			"\t/usr/sbin/iptables -D INPUT -i brwan -p tcp --dport 3277 -j ACCEPT\n"
+			"\t/usr/sbin/iptables -D INPUT -i eth0 -p tcp --dport 3277 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -D INPUT -i ppp0 -p tcp --dport 3277 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -D FORWARD -i site0 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -D FORWARD -o site0 -j ACCEPT\n"
@@ -736,12 +736,12 @@ void ctrl_write_firewall_script(char *peers_file)
 			if (peer_vip_item)
 			{
 				sprintf(buf,
-						"\t/usr/sbin/iptables -t nat -D br0_masq -s %s/32 -j MASQUERADE\n"
+						"\t/usr/sbin/iptables -t nat -D POSTROUTING -o br-lan -s %s/32 -j MASQUERADE\n"
 						"\t/usr/sbin/iptables -t nat -D POSTROUTING -o br1 -s %s/32 -j MASQUERADE\n"
 						"\t/usr/sbin/iptables -t nat -D POSTROUTING -o br2 -s %s/32 -j MASQUERADE\n"
 						"\t/usr/sbin/iptables -t nat -D POSTROUTING -o br3 -s %s/32 -j MASQUERADE\n"
-						"\t/usr/sbin/iptables -t nat -D brwan_masq -s %s/32 -j MASQUERADE\n"
-						"\t/usr/sbin/iptables -t nat -D ppp0_masq -s %s/32 -j MASQUERADE\n",
+						"\t/usr/sbin/iptables -t nat -D POSTROUTING -o eth0 -s %s/32 -j MASQUERADE\n"
+						"\t/usr/sbin/iptables -t nat -D POSTROUTING -o ppp0 -s %s/32 -j MASQUERADE\n",
 						peer_vip_item->valuestring,
 						peer_vip_item->valuestring,
 						peer_vip_item->valuestring,
@@ -771,7 +771,7 @@ void ctrl_write_firewall_script(char *virtual_subnet)
 			"\t/usr/sbin/iptables -I FORWARD -i site0 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -I FORWARD -o site0 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -t nat -I POSTROUTING -o site0 -j MASQUERADE\n"
-			"\t/usr/sbin/iptables -t nat -I br0_masq -s %s -j MASQUERADE\n"
+			"\t/usr/sbin/iptables -t nat -I br-lan_masq -s %s -j MASQUERADE\n"
 			"\t/usr/sbin/iptables -t nat -I brwan_masq -s %s -j MASQUERADE\n"
 			"\t/usr/sbin/iptables -t nat -I ppp0_masq -s %s -j MASQUERADE\n"
 			"fi\n"
@@ -783,7 +783,7 @@ void ctrl_write_firewall_script(char *virtual_subnet)
 			"\t/usr/sbin/iptables -D FORWARD -i site0 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -D FORWARD -o site0 -j ACCEPT\n"
 			"\t/usr/sbin/iptables -t nat -D POSTROUTING -o site0 -j MASQUERADE\n"
-			"\t/usr/sbin/iptables -t nat -D br0_masq -s %s -j MASQUERADE\n"
+			"\t/usr/sbin/iptables -t nat -D br-lan_masq -s %s -j MASQUERADE\n"
 			"\t/usr/sbin/iptables -t nat -D brwan_masq -s %s -j MASQUERADE\n"
 			"\t/usr/sbin/iptables -t nat -D ppp0_masq -s %s -j MASQUERADE\n"
 			"fi\n"

@@ -3,6 +3,7 @@ START=99
 
 start()
 {
+	config set x_agent_id=test
 	vpnlogd
 	mqtt-client 
 	mqtt-client -m

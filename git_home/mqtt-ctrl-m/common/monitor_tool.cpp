@@ -112,12 +112,12 @@ cJSON* monitor_tool_equipment_info()
 	cJSON* message_item = cJSON_CreateObject();
    /* MAC address */
 	char mac[100] = "";
-	net_tool_get_if_hwaddr((char*)"br0", mac);
+	net_tool_get_if_hwaddr((char*)"br-lan", mac);
 	cJSON_AddStringToObject(message_item, "mac", mac);
 
 	/* IP address */
 	char ip[100] = "";
-	net_tool_get_if_ip((char*)"br0", ip);
+	net_tool_get_if_ip((char*)"br-lan", ip);
 	cJSON_AddStringToObject(message_item, "ip", ip);
 
     /* get firmware version */
