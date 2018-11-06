@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Copyright (c) 2014 The Linux Foundation. All rights reserved.
+#
+
+do_pre_mount_root() {
+	echo "Prepare for mount root"
+    if [ "x`grep netgear /proc/mtd`" != "x" -a "x`grep rootfs_data /proc/mtd`" = "x" ]; then
+        /usr/sbin/ubinize -m 2048 -p 128KiB -o /tmp/ubi.image /etc/netgear.cfg
+        mtdn=`grep netgear /proc/mtd | awk -F ':' '{print $1}' | awk -F 'd' '{print $2}'`
+        /usr/sbin/ubidetach /dev/ubi_ctrl -m $mtdn
+        /usr/sbin/flash_erase /dev/mtd$mtdn 0 0
+        /usr/sbin/nandwrite -p /dev/mtd$mtdn /tmp/ubi.image
+        /usr/sbin/ubiattach /dev/ubi_ctrl -m $mtdn
+        if [ "x`grep rootfs_data /proc/mtd`" = "x" ]; then
+            echo "Error: attach rootfs_data mtd device fail!"
+        fi
+    fi
+}
+
+boot_hook_add preinit_main do_pre_mount_root
