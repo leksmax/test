@@ -881,6 +881,15 @@ struct fd_params {
 	uint16_t frame_ctrl;
 };
 
+struct dfs_radar_found_params {
+    uint32_t pri_min;
+    uint32_t pri_max;
+    uint32_t duration_min;
+    uint32_t duration_max;
+    uint32_t sidx_min;
+    uint32_t sidx_max;
+};
+
 /**
  * struct bcn_prb_template_params - beacon probe template parameter
  * @vdev_id: vdev id

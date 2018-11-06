@@ -2189,7 +2189,7 @@ config wifi-device  wifi$devidx
 	option macaddr	$(cat /sys/class/net/${dev}/address)
 	option hwmode	11${mode_11}
 	# REMOVE THIS LINE TO ENABLE WIFI:
-	option disabled 1
+	option disabled 0
 
 config wifi-iface
 	option device	wifi$devidx
