@@ -3,16 +3,6 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
-MODULE_NAME=BR500
-HW_VERSION=BR500
-FW_VERSION=V1.0.2.46
-LG_VERSION=V1.0.0.321
-CLOUD_VERSION=20161026
-HW_ID="29764958+0+128+1024+0+0"
-ifndef FW_REGION
-	FW_REGION=""
-endif
-
 # 2015/03/19
 # Torby and Tony confirmed that Netgear have sent new requirement out to resize
 # whole kernel and rootfs to 32MB.
@@ -30,16 +20,37 @@ UBINIZE_OPTS = -m 2048 -p 128KiB
 
 E2SIZE=$(shell echo $$(($(CONFIG_TARGET_ROOTFS_PARTSIZE)*1024)))
 
+define Device/NETGEAR_R7800
+	HW_VERSION := R7800
+	FW_VERSION := V1.0.2.46
+	LG_VERSION := V1.0.0.321
+	CLOUD_VERSION := 20161026
+	DEVICE_DTS := qcom-ipq8065-r7800
+	NETGEAR_BOARD_ID := R7800
+	NETGEAR_HW_ID := 29764958+0+128+512+4x4+4x4+cascade
+	FW_REGION := ""
+endef
+
+define Device/NETGEAR_BR500
+	HW_VERSION := BR500
+	FW_VERSION := V1.0.2.46
+	LG_VERSION := V1.0.0.321
+	CLOUD_VERSION := 20161026
+	DEVICE_DTS := qcom-ipq8065-br500
+	NETGEAR_BOARD_ID := BR500
+	NETGEAR_HW_ID := 29764958+0+128+1024+0+0
+	FW_REGION := ""
+endef
+
 define Image/Prepare
-	echo "$(MODULE_NAME)" > $(TARGET_DIR)/module_name
 	echo "$(HW_VERSION)" > $(TARGET_DIR)/hardware_version
 	echo "$(FW_VERSION)" > $(TARGET_DIR)/firmware_version
-	echo "$(CLOUD_VERSION)" > $(TARGET_DIR)/cloud_version
 	echo "$(FW_REGION)" > $(TARGET_DIR)/firmware_region
 	echo "$(LG_VERSION)" > $(TARGET_DIR)/default_language_version
-	echo $(HW_ID) > $(TARGET_DIR)/hw_id
+	echo "$(CLOUD_VERSION)" > $(TARGET_DIR)/cloud_version
+	echo "$(NETGEAR_BOARD_ID)" > $(TARGET_DIR)/module_name
+	echo "$(NETGEAR_HW_ID)" > $(TARGET_DIR)/hw_id
 	date > $(TARGET_DIR)/firmware_time
-	echo "1" > $(TARGET_DIR)/etc/init.d/.hidden_new_features
 endef
 
 define MkImageLzma
@@ -48,12 +59,7 @@ define MkImageLzma
 		-d $(1) $(2)
 endef
 
-define Image/Build/NETGEAR_R7800
-	echo "Image/Build/NETGEAR_R7800"
-endef
-
-define Image/Build/NETGEAR_BR500
-	echo "Image/Build/NETGEAR_BR500"
+define Image/Build/DniImage
 	dd if=$(KDIR)/uImage of=$(KDIR)/vmlinux-$(2).uImage
 	$(STAGING_DIR_HOST)/bin/R7800 \
 		$(KDIR)/vmlinux-$(2).uImage \
@@ -73,28 +79,31 @@ define Image/Build/NETGEAR_BR500
 	) > $(BIN_DIR)/$(IMG_PREFIX)-sysupgrade.bin
 	$(TOPDIR)/tools/checksize $(BIN_DIR)/$(IMG_PREFIX)-sysupgrade.bin $(MAX_IMAGE_SIZE)
 	$(STAGING_DIR_HOST)/bin/mkdniimg \
-		-B $(MODULE_NAME) -v $(FW_VERSION) -r $(FW_REGION) -H $(HW_ID) \
+		-B $(NETGEAR_BOARD_ID) -v $(FW_VERSION) -r $(FW_REGION) -H $(NETGEAR_HW_ID) \
 		-i $(BIN_DIR)/$(IMG_PREFIX)-sysupgrade.bin \
-		-o $(BIN_DIR)/$(MODULE_NAME)-$(FW_VERSION)$(FW_REGION).img
+		-o $(BIN_DIR)/$(NETGEAR_BOARD_ID)-$(FW_VERSION)$(FW_REGION).img
 endef
 
-define Image/BuildKernel
+define Image/BuildKernel	
 	$(CP) $(LINUX_DIR)/vmlinux $(BIN_DIR)/$(IMG_PREFIX)-vmlinux.elf
 	$(CP) $(LINUX_DIR)/arch/arm/boot/Image $(BIN_DIR)/$(IMG_PREFIX)-vmlinux.bin
 	cp $(KDIR)/zImage $(KDIR)/uImage.tmp
-	cat $(LINUX_DIR)/arch/arm/boot/dts/qcom-ipq8065-br500.dtb >> $(KDIR)/uImage.tmp
+	cat $(LINUX_DIR)/arch/arm/boot/dts/$(DEVICE_DTS).dtb >> $(KDIR)/uImage.tmp
 	mkimage -A arm -O linux -C none -T kernel -a 0x42208000 \
 		-e 0x42208000 -n 'Linux-$(LINUX_VERSION)' \
 		-d $(KDIR)/uImage.tmp $(KDIR)/uImage
 	dd if=$(KDIR)/uImage of=$(BIN_DIR)/$(IMG_PREFIX)-$(KERNEL)-uImage bs=2k conv=sync
 endef
 
-define Image/Build
-	echo "+++++++ Image/Build $(1) ++++"
-	$(call Image/Build/$(1),$(1))
-	mkdir -p $(BIN_DIR)
-	dd if=$(KDIR)/root.$(1) of=$(BIN_DIR)/$(IMG_PREFIX)-$(1)-root.img bs=2k conv=sync
-	$(call Image/Build/NETGEAR_BR500,$(1),r7800)
+define Image/Build/squashfs
+	@echo "+++++++ Image/Build/squashfs +++++++"
 endef
 
+define Image/Build
+	$(call Image/Build/$(1),$(1))
+	dd if=$(KDIR)/root.$(1) of=$(BIN_DIR)/$(IMG_PREFIX)-$(1)-root.img bs=2k conv=sync
+	$(call Image/Build/DniImage,$(1),$(NETGEAR_BOARD_ID))
+endef
+
+$(eval $(call Device/$(PROFILE)))
 $(eval $(call BuildImage))
