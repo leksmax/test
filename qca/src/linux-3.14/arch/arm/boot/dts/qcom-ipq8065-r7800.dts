@@ -123,7 +123,8 @@
 			
 			buttons_pins: buttons_pins {
 				mux {
-					pins = "gpio54";
+					pins = "gpio6", "gpio54", "gpio65";
+					function = "gpio";
 					drive-strength = <2>;
 					bias-pull-up;
 				};
@@ -158,8 +159,8 @@
 
 			leds_pins: leds_pins {
 				mux {
-					pins = "gpio8", "gpio9", "gpio22", "gpio23",
-						"gpio26", "gpio53";
+					pins = "gpio7", "gpio8", "gpio9", "gpio22", "gpio23",
+						"gpio24", "gpio26", "gpio53", "gpio64";
 					function = "gpio";
 					drive-strength = <2>;
 					bias-pull-down;
@@ -388,34 +389,51 @@
 			pinctrl-names = "default";
 
 			button@1 {
+				label = "rfkill";
+				linux,code = <KEY_RFKILL>;
+				gpios = <&qcom_pinmux 6 GPIO_ACTIVE_LOW>;
+				linux,input-type = <1>;
+				debounce-interval = <60>;
+			};
+			
+			button@2 {
 				label = "reset";
 				linux,code = <KEY_RESTART>;
 				gpios = <&qcom_pinmux 54 GPIO_ACTIVE_LOW>;
 				linux,input-type = <1>;
 				debounce-interval = <60>;
 			};
+
+			button@3 {
+				label = "wps";
+				linux,code = <KEY_WPS_BUTTON>;
+				gpios = <&qcom_pinmux 65 GPIO_ACTIVE_LOW>;
+				linux,input-type = <1>;
+				debounce-interval = <60>;
+			};
+			
 		};
 		
 		leds {
 			compatible = "gpio-leds";
 			pinctrl-0 = <&leds_pins>;
 			pinctrl-names = "default";
+			
+			usb@7 {
+				label = "usb1_green";
+				gpios = <&qcom_pinmux 7 GPIO_ACTIVE_HIGH>;
+				default-state = "off";
+			};
 
+			led@8 {
+				label = "usb2_green";
+				gpios = <&qcom_pinmux 8 GPIO_ACTIVE_HIGH>;
+				default-state = "off";	
+			};
+			
 			led@9 {
 				label = "power_amber";
 				gpios = <&qcom_pinmux 9 GPIO_ACTIVE_HIGH>;
-				default-state = "off";	
-			};
-
-			led@53 {
-				label = "power_green";
-				gpios = <&qcom_pinmux 53 GPIO_ACTIVE_HIGH>;
-				default-state = "off";	
-			};
-
-			led@23 {
-				label = "wan1_amber";
-				gpios = <&qcom_pinmux 23 GPIO_ACTIVE_HIGH>;
 				default-state = "off";	
 			};
 
@@ -425,16 +443,34 @@
 				default-state = "off";	
 			};
 
-			led@8 {
-				label = "cloud_green";
-				gpios = <&qcom_pinmux 8 GPIO_ACTIVE_HIGH>;
+			led@23 {
+				label = "wan1_amber";
+				gpios = <&qcom_pinmux 23 GPIO_ACTIVE_HIGH>;
 				default-state = "off";	
 			};
 
+			led@24 {
+				label = "wps_green";
+				gpios = <&qcom_pinmux 24 GPIO_ACTIVE_HIGH>;
+				default-state = "off";	
+			};
+			
 			led@26 {
-				label = "vpn_green";
+				label = "esata_green";
 				gpios = <&qcom_pinmux 26 GPIO_ACTIVE_HIGH>;
 				default-state = "off";	
+			};
+			
+			led@53 {
+				label = "power_green";
+				gpios = <&qcom_pinmux 53 GPIO_ACTIVE_HIGH>;
+				default-state = "off";	
+			};
+			
+			led@64 {
+				label = "rfkill_green";
+				gpios = <&qcom_pinmux 64 GPIO_ACTIVE_HIGH>;
+				default-state = "off";					
 			};
 		};
 		
