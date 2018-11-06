@@ -21,7 +21,7 @@ do_load_ipq4019_board_bin()
 
     # load board.bin
     case "$board" in
-            r78000)
+            r7800)
                     mkdir -p ${apdk}
                     dd if=${mtdblock} of=${apdk}/wifi0.caldata bs=32 count=377 skip=128
                     dd if=${mtdblock} of=${apdk}/wifi1.caldata bs=32 count=377 skip=640
