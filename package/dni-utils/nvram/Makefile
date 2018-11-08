@@ -22,6 +22,8 @@ define Build/Prepare
 endef
 
 define Package/nvram/install
+    $(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./files/nvram.init $(1)/etc/init.d/nvram
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/nvram $(1)/usr/sbin/
 endef
