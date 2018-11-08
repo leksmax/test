@@ -31,6 +31,8 @@ define Package/webcgi/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/upgrade.cgi $(1)/www/cgi-bin/
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/network.cli $(1)/usr/sbin/
+	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_BIN) ./files/33_migrate_wifi $(1)/etc/uci-defaults
 endef
 
 $(eval $(call BuildPackage,webcgi))
