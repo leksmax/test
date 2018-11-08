@@ -1,7 +1,9 @@
 #!/bin/sh
 
+. /lib/functions/uci-defaults.sh
+. /lib/ipq806x.sh
+
 UCI="/sbin/uci"
-NVRAM="/usr/sbin/nvram"
 
 WL2G_RADIO_PREFIX="wireless.wifi1"
 WL2G_IFACE_PREFIX="wireless.@wifi-iface[1]"
@@ -9,33 +11,48 @@ WL2G_IFACE_PREFIX="wireless.@wifi-iface[1]"
 WL5G_RADIO_PREFIX="wireless.wifi0"
 WL5G_IFACE_PREFIX="wireless.@wifi-iface[0]"
 
-ssid=$(/sbin/artmtd -r ssid | awk -F ":" '{print $2}')
-passphrase=$(/sbin/artmtd -r passphrase | awk -F ":" '{print $2}')
+migrate_wifi(){
 
-$UCI set ${WL2G_RADIO_PREFIX}.hwmode="11ng"
-$UCI set ${WL2G_RADIO_PREFIX}.htmode="HT40"
+	ssid=$(/sbin/artmtd -r ssid | awk -F ":" '{print $2}')
+	passphrase=$(/sbin/artmtd -r passphrase | awk -F ":" '{print $2}')
 
-$UCI set ${WL2G_IFACE_PREFIX}.ssid="$ssid"
-$UCI set ${WL2G_IFACE_PREFIX}.encryption="psk2"
-$UCI set ${WL2G_IFACE_PREFIX}.key="$passphrase"
-$UCI set ${WL2G_IFACE_PREFIX}.hidden="0"
-$UCI set ${WL2G_IFACE_PREFIX}.vht_11ng="1"
-$UCI set ${WL2G_IFACE_PREFIX}.disablecoext="0"
-$UCI set ${WL2G_IFACE_PREFIX}.wmm="1"
-$UCI set ${WL2G_IFACE_PREFIX}.countryie="0"
-$UCI set ${WL2G_IFACE_PREFIX}.bintval="100"
+	$UCI set ${WL2G_RADIO_PREFIX}.hwmode="11ng"
+	$UCI set ${WL2G_RADIO_PREFIX}.htmode="HT40"
 
-$UCI set ${WL5G_RADIO_PREFIX}.hwmode="11ac"
-$UCI set ${WL5G_RADIO_PREFIX}.htmode="HT80"
+	$UCI set ${WL2G_IFACE_PREFIX}.ssid="$ssid"
+	$UCI set ${WL2G_IFACE_PREFIX}.encryption="psk2"
+	$UCI set ${WL2G_IFACE_PREFIX}.key="$passphrase"
+	$UCI set ${WL2G_IFACE_PREFIX}.hidden="0"
+	$UCI set ${WL2G_IFACE_PREFIX}.vht_11ng="1"
+	$UCI set ${WL2G_IFACE_PREFIX}.disablecoext="0"
+	$UCI set ${WL2G_IFACE_PREFIX}.wmm="1"
+	$UCI set ${WL2G_IFACE_PREFIX}.countryie="0"
+	$UCI set ${WL2G_IFACE_PREFIX}.bintval="100"
 
-$UCI set ${WL5G_IFACE_PREFIX}.ssid="$ssid-5G"
-$UCI set ${WL5G_IFACE_PREFIX}.encryption="psk2"
-$UCI set ${WL5G_IFACE_PREFIX}.key="$passphrase"
-$UCI set ${WL5G_IFACE_PREFIX}.hidden="0"
-$UCI set ${WL5G_IFACE_PREFIX}.disablecoext="1"
-$UCI set ${WL5G_IFACE_PREFIX}.wmm="1"
-$UCI set ${WL5G_IFACE_PREFIX}.countryie="1"
-$UCI set ${WL5G_IFACE_PREFIX}.bintval="100"
+	$UCI set ${WL5G_RADIO_PREFIX}.hwmode="11ac"
+	$UCI set ${WL5G_RADIO_PREFIX}.htmode="HT80"
+
+	$UCI set ${WL5G_IFACE_PREFIX}.ssid="$ssid-5G"
+	$UCI set ${WL5G_IFACE_PREFIX}.encryption="psk2"
+	$UCI set ${WL5G_IFACE_PREFIX}.key="$passphrase"
+	$UCI set ${WL5G_IFACE_PREFIX}.hidden="0"
+	$UCI set ${WL5G_IFACE_PREFIX}.disablecoext="1"
+	$UCI set ${WL5G_IFACE_PREFIX}.wmm="1"
+	$UCI set ${WL5G_IFACE_PREFIX}.countryie="1"
+	$UCI set ${WL5G_IFACE_PREFIX}.bintval="100"
+
+}
+
+board=$(ipq806x_board_name)
+
+case "$board" in
+r7800)
+	migrate_wifi
+	;;
+*)
+	echo "Unsupported hardware."
+	;;
+esac
 
 $UCI commit wireless
 
