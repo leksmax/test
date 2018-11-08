@@ -8,13 +8,13 @@
 do_load_ipq4019_board_bin()
 {
     local board=$(ipq806x_board_name)
-    local mtdblock=$(find_mtd_part 0:ART)
+    local mtdblock=$(find_mtd_part ART)
 
     local apdk="/tmp"
 
     if [ -z "$mtdblock" ]; then
         # read from mmc
-        mtdblock=$(find_mmc_part 0:ART)
+        mtdblock=$(find_mmc_part ART)
     fi
 
     [ -n "$mtdblock" ] || return
