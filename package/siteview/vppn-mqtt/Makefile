@@ -20,7 +20,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/vppn-mqtt
   SECTION:=net
   CATEGORY:=Network
-  DEPENDS:=+evmongoose +libpthread +libev +openssl +libcurl +zlib +libstdcpp
+  DEPENDS:=+evmongoose +libpthread +libev +libopenssl +libcurl +zlib +libstdcpp
   TITLE:=Vppn Package
   URL:=http://vppn.net/source
 endef
