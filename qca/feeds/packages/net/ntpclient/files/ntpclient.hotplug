@@ -8,6 +8,8 @@ unset PORT
 unset INTERVAL
 unset COUNT
 unset INTERFACE_GLOBAL
+unset TIMEZONE
+unset ENABLED
 
 NTPC=`which ntpclient`
 
@@ -41,26 +43,34 @@ start_ntpclient() {
 	config_foreach check_server ntpserver
 	[ -z "$SERVER" ] && exit 0
 	logger starting ntpclient
-	$NTPC ${COUNT:+-c $COUNT} ${INTERVAL:+-i $INTERVAL} -s -l -D -p $PORT -h $SERVER 2> /dev/null
+	$NTPC ${COUNT:+-c $COUNT} ${INTERVAL:+-i $INTERVAL} ${TIMEZONE:+-z $TIMEZONE} -s -l -D -p $PORT -h $SERVER 2> /dev/null
 }
 
 stop_ntpclient() {
-	logger stopping ntpclient
-	killall ntpclient
+	if [ -n "$NTP_RUNNING" ]; then
+		logger stopping ntpclient
+		killall ntpclient
+	fi
 }
 
 load_settings() {
+	local enabled
 	local interval
 	local count
 	local iface
+	local timezone
 	
+	config_get enabled $1 enabled
 	config_get interval $1 interval
 	config_get count $1 count
 	config_get interface $1 interface
+	config_get timezone $1 timezone
 	
+	[ -n "$enabled" ] && ENABLED=$enabled
 	[ -n "$count" ] && COUNT=$count
 	[ -n "$interval" ] && INTERVAL=$interval
 	[ -n "$interface" ] && INTERFACE_GLOBAL=$interface
+	[ -n "$timezone" ] && [	"$timezone" -ne "0" ] && TIMEZONE=$timezone
 }
 
 config_load ntpclient
@@ -68,11 +78,9 @@ config_foreach load_settings ntpclient
 
 NTP_RUNNING=`ps  | grep $NTPC | grep -v grep`
 
-case "${ACTION:-ifup}" in
-	ifup)
-		[ -z "$NTP_RUNNING" ] && start_ntpclient 
-	;;
-	ifdown)
-		[ -n "$NTP_RUNNING" ] && stop_ntpclient 
-	;;
-esac
+if [ "$ENABLED" -eq "1" ]; then
+	stop_ntpclient 
+	start_ntpclient
+else
+	stop_ntpclient 
+fi
