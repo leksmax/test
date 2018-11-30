@@ -4397,6 +4397,14 @@ CONFIG_PACKAGE_rp-pppoe-server=y
 # CONFIG_PACKAGE_rp-pppoe-sniff is not set
 
 #
+# wide-dhcpv6
+#
+# CONFIG_PACKAGE_wide-dhcpv6-client is not set
+# CONFIG_PACKAGE_wide-dhcpv6-control is not set
+# CONFIG_PACKAGE_wide-dhcpv6-relay is not set
+CONFIG_PACKAGE_wide-dhcpv6-server=y
+
+#
 # wireless
 #
 # CONFIG_PACKAGE_aircrack-ng is not set
@@ -4506,6 +4514,7 @@ CONFIG_PACKAGE_ppp-mod-pptp=y
 # CONFIG_PACKAGE_pppdump is not set
 # CONFIG_PACKAGE_pppstats is not set
 # CONFIG_PACKAGE_radsecproxy is not set
+CONFIG_PACKAGE_radvd=y
 # CONFIG_PACKAGE_redsocks is not set
 CONFIG_PACKAGE_remserial=m
 # CONFIG_PACKAGE_rssileds is not set

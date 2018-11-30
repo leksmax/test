@@ -1,0 +1,377 @@
+#!/bin/sh /etc/rc.common
+
+DHCP6S_CONF="/etc/dhcp6s.conf"
+RADVD_CONF="/etc/radvd.conf"
+DHCP6S_DEFAULT_TIME=86400
+DHCP6S_PREFER_TIME=1800
+DHCP6S_DEFAULT_PREFIX_LEN=64
+IPV6_SIDE_ID="0"
+
+radvd_write_config() {
+	local DHCPS_ENABLE=$1
+	local PREFIX=$2
+	local PRELEN=$3
+	local VALID_TIME=$4
+	local PREFER_TIME=$5
+	local IPV6_ADDR
+	local PD_INFO
+	local OLD_PREFIX
+	local OLD_PRELEN
+	local OLD_PD_INFO
+
+	printf 'interface %s {\n' "${lan_ifname}"
+	printf '\tAdvSendAdvert on;\n'
+	printf '\tAdvCurHopLimit 64;\n'
+	printf '\tMinRtrAdvInterval 198;\n'
+	printf '\tMaxRtrAdvInterval 600;\n'
+	printf '\tAdvDefaultLifetime 1800;\n'
+	printf '\tAdvReachableTime 0;\n'
+	printf '\tAdvRetransTimer 0;\n'
+	printf '\tAdvDefaultPreference low;\n'
+	printf '\tAdvHomeAgentFlag off;\n'
+	if [ "x${DHCPS_ENABLE}" != "x0" ]; then
+		printf '\tAdvOtherConfigFlag on;\n'
+		printf '\tAdvManagedFlag off;\n'
+		if [ "x${PREFIX}" != "x" -a "x${PRELEN}" != "x" ]; then
+			printf '\tprefix %s/%s {\n' "$PREFIX" "$PRELEN"
+			printf '\t\tAdvOnLink on;\n'
+			printf '\t\tAdvAutonomous on;\n'
+			if [ "x${wan_proto}" = "xdhcp" -o "x${wan_proto}" = "xpppoe" -o "x${wan_proto}" = "xstatic" ]; then
+				printf '\t\tAdvValidLifetime %s;\n' "$VALID_TIME"
+				printf '\t\tAdvPreferredLifetime %s;\n' "$PREFER_TIME"
+			else
+				printf '\t\tAdvValidLifetime 2400;\n'
+				printf '\t\tAdvPreferredLifetime 1800;\n'
+				VALID_TIME=2400
+				PREFER_TIME=1800
+			fi
+			printf '\t};\n'
+		fi
+		# To fix bug 22829,spec 2.0: The router's Auto Config function on the LAN has to include the RDNSS option in the RA's and it
+		# uses the router's unicast link-local IPv6 address as the recursive DNS server.
+		if [ "x${DHCPS_ENABLE}" = "x2" ]; then
+			IPV6_ADDR=$(/sbin/ifconfig ${lan_ifname} | grep 'Scope:Link' | awk -F/ '{print$1}' | awk -F'inet6 addr:' '{print$2}');
+			printf '\tRDNSS %s {\n' "$IPV6_ADDR"
+			printf '\t\tAdvRDNSSPreference 8;\n'
+			printf '\t\tAdvRDNSSLifetime 1200;\n'
+			printf '\t};\n'
+		fi
+	else
+		printf '\tAdvOtherConfigFlag on;\n'
+		printf '\tAdvManagedFlag on;\n'
+	fi
+
+	printf '};\n'
+}
+
+dhcp6s_write_config() {
+	local lease_time=$1
+	local pre_time=$2
+	local prefix=$3
+	local prelen=$4
+
+	local br6localaddr=`ifconfig ${lan_ifname} |grep "inet6" |grep "Link" |awk '{print $3}' | cut -f1 -d'/'`
+	printf 'option domain-name-servers %s;\n' "$br6localaddr"
+
+	if [ "$lease_time" -gt "0" ]; then
+		printf 'interface %s {\n' "${lan_ifname}"
+		printf '\tallow rapid-commit;\n'
+		printf '\taddress-pool pool_netgear %s %s;\n' "$pre_time" "$lease_time"
+		printf '};\n'
+		printf 'pool pool_netgear {\n'
+		printf '\trange %s100 to %s200;\n' "$prefix" "$prefix"
+		printf '};\n'
+	fi
+}
+
+format_prefix() {
+	local lanip6=$1
+	local prelen=$2
+	local fields=$(($prelen / 16))
+
+	if [ "$(($prelen % 8))" != "0" ]; then
+		fields=$(($fields + 1))
+	fi
+	local i=1
+	while [ "$i" -le "$fields" ]; do
+		value=`echo $lanip6 | cut -f$i -d':'`
+		if [ "x$value" == "x" ]; then
+			break
+		fi
+		printf "%s:" "$value"
+		i=$(($i + 1))
+	done
+	if [ "$i" -lt "8" ]; then
+		printf ":"
+	fi
+}
+
+get_prefix_static()
+{
+	local lanip6addr
+	if [ "x${lan_type}" == "x1" ]; then		
+		lanip6addr=`uci get network.${lan_iface}.ip6addr`
+	else		
+		lanip6addr=`ifconfig ${lan_ifname} |grep "inet6 addr" |grep -v "Link" |awk '{print $3}'`
+	fi
+	
+	local prefix=`echo ${lanip6addr} | awk -F/ '{print $1}'`
+	local prefixlen=`echo ${lanip6addr} | awk -F/ '{print $2}'`
+
+	if [ "${prefixlen}" == "x" ]; then
+		prefixlen=${DHCP6S_DEFAULT_PREFIX_LEN}
+	fi
+	
+	printf "${DHCP6S_DEFAULT_TIME} ${DHCP6S_PREFER_TIME} %s %s" `format_prefix ${prefix} ${prefixlen}` ${prefixlen}
+}
+
+get_prefix_dhcp()
+{	
+	local wanip6addr=`ifconfig ${wan_ifname} |grep "inet6 addr" |grep -v "Link" |awk '{print $3}'`
+	
+	if [ "x${wanip6addr}" != "x" ]; then
+		local prefix=`echo ${wanip6addr} | awk -F/ '{print $1}'`	
+		local prefixlen=`echo ${wanip6addr} | awk -F/ '{print $2}'`	
+		
+		printf "${DHCP6S_DEFAULT_TIME} ${DHCP6S_PREFER_TIME} %s %s" ${prefix} ${prefixlen}
+	fi
+	
+	printf ""
+}
+
+get_prefix_6rd()
+{
+	local prefix=`uci get network.${wan_iface}.ip6prefix`
+	local prefixlen=`uci get network.${wan_iface}.ip6prefixlen`
+	
+	printf "${DHCP6S_DEFAULT_TIME}  ${DHCP6S_PREFER_TIME}  %s  %s" ${prefix} ${prefixlen}
+}
+
+get_prefix_6to4() {
+	local localip4=`uci get network.${wan_iface}.ipaddr`
+	
+	if [ "x{localip4}" == "x" ]; then
+		localip4=`ifconfig ${wan_ifname} |grep "inet addr" |cut -f2 -d: |cut -f1 -d' '`
+	fi
+	# print the prefix, with 3 field
+	# "lease_time	prefix	prefix_len"
+	if [ "x${localip4}" != "x" ]; then
+		printf "${DHCP6S_DEFAULT_TIME}	${DHCP6S_PREFER_TIME}	2002:%02x%02x:%02x%02x:${IPV6_SIDE_ID}::	64" `echo $localip4 | sed 's/\./ /g'`
+	fi
+}
+
+
+get_prefix_dhcp6s_static()
+{
+	printf "${DHCP6S_DEFAULT_TIME}  ${DHCP6S_PREFER_TIME} ${dhcp6s_prefix} ${dhcp6s_prefixlen}"
+}
+
+get_prefix_info()
+{
+	local prefixinfo
+	
+	case "${wan_proto}" in
+	static) prefixinfo=`get_prefix_static`
+	;;
+	dhcpv6) prefixinfo=`get_prefix_static`
+	;;
+	6rd) prefixinfo=`get_prefix_6rd`
+	;;
+	6to4) prefix=`get_prefix_6to4`
+	;;
+	pppoe) prefixinfo=`get_prefix_static`
+	;;
+	*) ;;
+	esac
+	
+	printf "${prefixinfo}"	
+}
+geteui64() {
+        local lanlinkaddr=$1
+        local laddr3=`echo $lanlinkaddr | cut -f3 -d:`
+        local laddr4=`echo $lanlinkaddr | cut -f4 -d:`
+        local laddr5=`echo $lanlinkaddr | cut -f5 -d:`
+        local laddr6=`echo $lanlinkaddr | cut -f6 -d:`
+
+	# Deal with specified kinds of lanlinkaddr:
+	# fe80:: fe80::1 fe80::1:2 fe80::1:2:3 fe80::1:2:3:4
+	if [ x${laddr3} == x ]; then
+		printf "%04x:%04x:%04x:%04x" 0x0000 0x0000 0x0000 0x0000
+	elif [ x${laddr4} == x ]; then
+		printf "%04x:%04x:%04x:%04x" 0x0000 0x0000 0x0000 0x${laddr3}
+	elif [ x${laddr5} == x ]; then
+		printf "%04x:%04x:%04x:%04x" 0x0000 0x0000 0x${laddr3} 0x${laddr4}
+	elif [ x${laddr6} == x ]; then
+		printf "%04x:%04x:%04x:%04x" 0x0000 0x${laddr3} 0x${laddr4} 0x${laddr5}
+	else
+		printf "%04x:%04x:%04x:%04x" 0x${laddr3} 0x${laddr4} 0x${laddr5} 0x${laddr6}
+	fi
+}
+
+generate_ipv6_lan_ip()
+{
+	local prefix=$1
+	local eui64=$2
+	local p_len=$3
+
+	local num=$(((128 - $p_len) / 16))
+	local eui1=`echo $eui64 | cut -f1 -d:`
+	local eui2=`echo $eui64 | cut -f2 -d:`
+	local eui3=`echo $eui64 | cut -f3 -d:`
+	local eui4=`echo $eui64 | cut -f4 -d:`
+
+	if [ "$num" -gt "4" ]; then
+		printf '%s%s' $prefix $eui64
+		return
+	else
+		local num1=`echo -n $prefix | sed 's/[^:]//g' | wc -c`
+		local p_num=$(($p_len / 16))
+		if [ "$num1" -gt "$p_num" ]; then
+			prefix=`echo -n $prefix | sed 's/::/:/g'`
+		fi
+	fi
+
+	case $num in
+		1)
+		printf '%s%s' $prefix $eui4
+		;;
+		2)
+		printf '%s%s:%s' $prefix $eui3 $eui4
+		;;
+		3)
+		printf '%s%s:%s:%s' $prefix $eui2 $eui3 $eui4
+		;;
+		4)
+		printf '%s%s' $prefix $eui64
+		;;
+		*)
+		;;
+	esac
+}
+
+write_config() {
+
+	local prefixinfo=`get_prefix_info`
+	local dhcp6s_server=`uci get dhcp6s.basic.server`
+	
+	if [ "x${prefixinfo}" != "x" ]; then
+		echo "prefixinfo = ${prefixinfo}"
+		local lease_time=`echo "${prefixinfo}" | awk '{print $1}'`
+		local pre_time=`echo "${prefixinfo}" | awk '{print $2}'`
+		local prefix=`echo "${prefixinfo}" | awk '{print $3}'`
+		local prefixlen=`echo "${prefixinfo}" | awk '{print $4}'`
+		
+		echo "lease_time = ${lease_time},pre_time = ${pre_time},prefix = ${prefix},prefixlen = ${prefixlen}"
+		
+		if [ "x${prefixlen}" = "x0" ] || [ "${prefixlen}" -gt "64" ]; then	
+			radvd_write_config "${dhcp6s_server}" "" "" "" "" > ${RADVD_CONF}
+		else
+			radvd_write_config "${dhcp6s_server}" "${prefix}" "${prefixlen}" "${lease_time}" "${pre_time}" > ${RADVD_CONF}
+		fi
+		dhcp6s_write_config "${lease_time}" "${pre_time}" "${prefix}" "${prefixlen}" > ${DHCP6S_CONF}
+		
+		# NOTE, Only when WAN Connection Type is DHCP, PPPoE or AutoConf, set the LAN IPv6
+		if [ "${wan_proto}" == "dhcpv6" -o "${wan_proto}" == "pppoe" -o "${wan_proto}" == "autoConfig" ]; then
+			local lan_prefix=$prefix
+			local lanlinkip=$(ifconfig ${lan_ifname} | grep "fe80" | awk '{print $3}' | awk -F/ '{print $1}')
+			local eui64=$(geteui64 $lanlinkip)
+			if [ ${prefix_len} -lt 64 ]; then
+				local glip=`generate_ipv6_lan_ip $lan_prefix $eui64 64`
+				ip -6 addr add ${glip}/64 dev ${lan_ifname}
+			else
+				local glip=`generate_ipv6_lan_ip $lan_prefix $eui64 $prefix_len`
+				ip -6 addr add ${glip}/${prefix_len} dev ${lan_ifname}
+			fi
+		fi
+	else
+		radvd_write_config "${dhcp6s_server}" "" "" "" "" > ${RADVD_CONF}
+		dhcp6s_write_config "" "" "" "" > ${DHCP6S_CONF}
+	fi
+}
+
+start_radvd() {
+	# Wait for a few second to let kernel enable addr,so that the sock of radvd can up completely.This fix bug35529. 
+	if [ "x${wan_proto}" = "xstatic" ] || [ "x${wan_proto}" = "x6to4" ]; then
+		sleep 2
+	fi
+	# Start RA
+	/usr/sbin/radvd -C ${RADVD_CONF}
+}
+
+stop_radvd() {
+	killall radvd
+}
+
+start_dhcp6s() {
+	local dhcp6s_enabled=`uci get dhcp6s.basic.enabled`
+	local old_dhcp6s_enabled=`uci get dhcp6s.basic.old_enabled`
+	
+	if [ "x${dhcp6s_enabled}" == "x1" ]; then
+		/usr/sbin/dhcp6s -3 -c "${DHCP6S_CONF}" "${lan_ifname}"
+	else
+		/usr/sbin/dhcp6s -3 -c "${DHCP6S_CONF}" -i "${lan_ifname}"
+	fi
+	
+	if [ "x${old_dhcp6s_enabled}" = "x" -o "x${old_dhcp6s_enabled}" != "x${dhcp6s_enabled}" ]; then
+		uci set "dhcp6s.basic.old_enabled=${dhcp6s_enabled}"
+		uci commit
+	fi
+}
+
+stop_dhcp6s() {
+	killall dhcp6s
+}
+
+get_global()
+{
+	lan_iface=`uci get dhcp6s.basic.lan_iface`	
+	wan_iface=`uci get dhcp6s.basic.wan_iface`
+	dhcp6s_leasetime=`uci get dhcp6s.basic.leasetime`
+	wan_proto=`uci get network.${wan_iface}.proto`
+	wan_ifname=`uci get network.${wan_iface}.ifname`
+	lan_type=`uci get network.${lan_iface}.dhcpv6_type`
+	lan_ifname="br-${lan_iface}"
+		
+	if [ "x${dhcp6s_leasetime}" != "x" ]; then
+		DHCP6S_DEFAULT_TIME=${dhcp6s_leasetime}
+	fi
+}
+
+start() {
+
+	get_global
+	
+	# If IPv6 WAN Connection Type is PassThrough, do not need start service
+	if [ "${wan_proto}" == "bridge" ]; then
+		return
+	fi
+	
+	write_config
+
+	start_radvd
+
+	start_dhcp6s
+}
+
+stop() {
+	stop_radvd
+	stop_dhcp6s
+}
+
+restart() {
+	stop
+	start
+}
+
+
+case "$1" in
+	start)
+	start
+	;;
+	stop)
+	stop
+	;;
+	restart)
+	restart
+	;;
+esac
