@@ -47,10 +47,8 @@ start_ntpclient() {
 }
 
 stop_ntpclient() {
-	if [ -n "$NTP_RUNNING" ]; then
-		logger stopping ntpclient
-		killall ntpclient
-	fi
+	logger stopping ntpclient
+	killall ntpclient
 }
 
 load_settings() {
@@ -78,9 +76,11 @@ config_foreach load_settings ntpclient
 
 NTP_RUNNING=`ps  | grep $NTPC | grep -v grep`
 
-if [ "$ENABLED" -eq "1" ]; then
-	stop_ntpclient 
-	start_ntpclient
-else
-	stop_ntpclient 
-fi
+case "${ACTION:-ifup}" in
+    ifup)
+        [ -z "$NTP_RUNNING" ] && [ "$ENABLED" -eq "1" ] && start_ntpclient 
+    ;;
+    ifdown)
+        [ -n "$NTP_RUNNING" ] && stop_ntpclient 
+    ;;
+esac
