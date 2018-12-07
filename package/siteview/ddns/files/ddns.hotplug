@@ -1,0 +1,9 @@
+#!/bin/sh
+case "${ACTION:-ifup}" in
+        ifup)
+                /etc/init.d/ddns start
+        ;;
+        ifdown)
+                /etc/init.d/ddns stop
+    ;;
+esac

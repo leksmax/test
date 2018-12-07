@@ -1,0 +1,120 @@
+#!/bin/sh
+START=60
+
+EZ_IPUPDATE="/usr/sbin/ez-ipupdate"
+EZ_PID="/var/run/ez-ipupd.pid"
+DDNS_CACHE="/tmp/ez-ipupd.cache"
+DDNS_CONF="/tmp/ez-ipupd.conf"
+NO_IP_CONF="/tmp/no_ip.conf"
+
+DDNS_ENABLED=`uci get ddns.@ddns[0].enabled`
+DDNS_INTERFACE=`uci get ddns.@ddns[0].interface`
+WAN_PROTO=`uci get network.${DDNS_INTERFACE}.proto`
+WAN_IFNAME=`uci get network.${DDNS_INTERFACE}.ifname`
+
+[ -f /usr/sbin/ez-ipupdate ] || exit 0
+
+if [ "${WAN_PROTO}" == "pppoe" -o  "${WAN_PROTO}" == "pptp" -o "${WAN_PROTO}" == "l2tp" ]; then
+	WAN_IFNAME="ppp0"
+fi
+
+check_proess_exist()
+{
+	local service=${1}
+	local running=`ps | grep ${service} | grep -v grep`
+	
+	printf "${running}"
+}
+
+printf_ddns_conf() {
+	local user_agent="NETGEAR - $(cat /module_name) - $(cat /firmware_version)"
+cat << EOF
+	user-agent=$user_agent
+EOF
+}
+
+start()
+{
+	if [ "${DDNS_ENABLED}" == "1" ]; then
+		local DDNS_SERVICE=`uci get ddns.@ddns[0].service`
+		local DDNS_DOMAINNAME=`uci get ddns.@ddns[0].domain_name`
+		local DDNS_USERNAME=`uci get ddns.@ddns[0].username`
+		local DDNS_PASSWORD=`uci get ddns.@ddns[0].password`
+		local DDNS_INTERFACE=`uci get ddns.@ddns[0].interface`
+		local DDNS_UPDATE_TIME=`uci get ddns.@ddns[0].update_time`
+		local SERVICE_TYPE="dyndns"
+		local update_time=0
+		
+		if [ "${DDNS_SERVICE}" == "www.no-ip.com" ]; then
+			let "update_time=${DDNS_UPDATE_TIME} * 60"
+			SERVICE_TYPE="noipdns"
+		elif [ "${DDNS_SERVICE}" == "www.oray.cn" ]; then
+			SERVICE_TYPE="oray"
+		elif [ "${DDNS_SERVICE}" == "www.DynDNS.org" ]; then			
+			let "update_time=${DDNS_UPDATE_TIME} * 3600"
+			SERVICE_TYPE="dyndns"
+		fi
+		
+		if [ "${SERVICE_TYPE}" == "noipdns" ]; then
+			sleep 3	
+			if [ "x${update_time}" == "x0" ]; then				
+				echo "/usr/sbin/noip2 -I ${WAN_IFNAME} -o ${DDNS_DOMAINNAME} -u ${DDNS_USERNAME} -p ${DDNS_PASSWORD} -C -c ${NO_IP_CONF}"
+				/usr/sbin/noip2 -I ${WAN_IFNAME} -o ${DDNS_DOMAINNAME} -u ${DDNS_USERNAME} -p ${DDNS_PASSWORD} -C -c ${NO_IP_CONF}
+			else
+				echo "/usr/sbin/noip2 -I ${WAN_IFNAME} -o ${DDNS_DOMAINNAME} -u ${DDNS_USERNAME} -p ${DDNS_PASSWORD} -U ${update_time} -C -c ${NO_IP_CONF}"
+				/usr/sbin/noip2 -I ${WAN_IFNAME} -o ${DDNS_DOMAINNAME} -u ${DDNS_USERNAME} -p ${DDNS_PASSWORD} -U ${update_time} -C -c ${NO_IP_CONF}
+			fi
+		else 			
+			printf_ddns_conf > ${DDNS_CONF}			
+			if [ "x${update_time}" == "x0" ]; then				
+				echo "${EZ_IPUPDATE} -S ${SERVICE_TYPE} -u ${DDNS_USERNAME}:${DDNS_PASSWORD} -h ${DDNS_DOMAINNAME} -i ${WAN_IFNAME} -p 30 -P 10 -r 7 -F $pid -d -b ${DDNS_CACHE} -c ${DDNS_CONF}"
+				${EZ_IPUPDATE} -S ${SERVICE_TYPE} -u "${DDNS_USERNAME}":"${DDNS_PASSWORD}" -h ${DDNS_DOMAINNAME} -i ${WAN_IFNAME} -p 30 -P 10 -r 7 -F ${EZ_PID} -d -b ${DDNS_CACHE} -c ${DDNS_CONF}
+			else
+				echo "${EZ_IPUPDATE} -S ${SERVICE_TYPE} -u ${DDNS_USERNAME}:${DDNS_PASSWORD} -h ${DDNS_DOMAINNAME} -i ${WAN_IFNAME} -M ${update_time} -p 30 -P 10 -r 7 -F $pid -d -b ${DDNS_CACHE} -c ${DDNS_CONF}"
+				${EZ_IPUPDATE} -S ${SERVICE_TYPE} -u "${DDNS_USERNAME}":"${DDNS_PASSWORD}" -h ${DDNS_DOMAINNAME} -i ${WAN_IFNAME} -M ${update_time} -p 30 -P 10 -r 7 -F ${EZ_PID} -d -b ${DDNS_CACHE} -c ${DDNS_CONF}
+			fi			
+		fi
+	fi
+}
+
+stop()
+{
+	if [ "x`check_proess_exist ez-ipupdate`" != "x" ]; then
+		killall -9 ez-ipupdate
+	fi	
+	if [ "x`check_proess_exist updatednsip`" != "x" ]; then
+		killall -15 updatednsip
+		killall -9 updatednsip
+	fi
+	if [ "x`check_proess_exist phddns`" != "x" ]; then
+		killall -9 phddns
+	fi
+	if [ "x`check_proess_exist noip2`" != "x" ]; then
+		killall -9 noip2
+	fi	
+}
+
+restart()
+{
+	stop
+	start
+}
+
+boot() {
+	start
+}
+
+case "${1}" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart|reload)
+	restart
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|restart}"
+	exit 1
+esac
