@@ -1,0 +1,103 @@
+Index: miniupnpd-1.9.20150609/minissdp.c
+===================================================================
+--- miniupnpd-1.9.20150609.orig/minissdp.c
++++ miniupnpd-1.9.20150609/minissdp.c
+@@ -201,7 +201,7 @@ OpenAndConfSSDPNotifySocket(in_addr_t ad
+ 	int s;
+ 	unsigned char loopchar = 0;
+ 	int bcast = 1;
+-	unsigned char ttl = 2; /* UDA v1.1 says :
++	unsigned char ttl = time_to_live; /* UDA v1.1 says :
+ 		The TTL for the IP packet SHOULD default to 2 and
+ 		SHOULD be configurable. */
+ 	/* TODO: Make TTL be configurable */
+Index: miniupnpd-1.9.20150609/miniupnpd.c
+===================================================================
+--- miniupnpd-1.9.20150609.orig/miniupnpd.c
++++ miniupnpd-1.9.20150609/miniupnpd.c
+@@ -1272,6 +1272,9 @@ init(int argc, char * * argv, struct run
+ 			case UPNPMINISSDPDSOCKET:
+ 				minissdpdsocketpath = ary_options[i].value;
+ 				break;
++			case UPNPTIMETOLIVE:
++				time_to_live = atoi(ary_options[i].value);
++				break;
+ 			default:
+ 				fprintf(stderr, "Unknown option in file %s\n",
+ 				        optionsfile);
+@@ -1546,6 +1549,12 @@ init(int argc, char * * argv, struct run
+ 		case 'f':
+ 			i++;	/* discarding, the config file is already read */
+ 			break;
++		case 'l':
++			if(i+1 < argc)
++				time_to_live = atoi(argv[++i]);
++			else
++				fprintf(stderr, "Option -%c takes one argument.\n", argv[i][1]);
++			break;
+ 		default:
+ 			fprintf(stderr, "Unknown option: %s\n", argv[i]);
+ 		}
+@@ -1708,6 +1717,7 @@ print_usage:
+ #ifdef ENABLE_NFQUEUE
+                         "\t\t[-Q queue] [-n name]\n"
+ #endif
++			"\t\t[-l time_to_live]\n"
+ 			"\t\t[-A \"permission rule\"] [-b BOOTID]\n"
+ 	        "\nNotes:\n\tThere can be one or several listening_ips.\n"
+ 	        "\tNotify interval is in seconds. Default is 30 seconds.\n"
+Index: miniupnpd-1.9.20150609/options.c
+===================================================================
+--- miniupnpd-1.9.20150609.orig/options.c
++++ miniupnpd-1.9.20150609/options.c
+@@ -83,7 +83,8 @@ static const struct {
+ 	{ UPNPLEASEFILE, "lease_file"},
+ #endif
+ 	{ UPNPMINISSDPDSOCKET, "minissdpdsocket"},
+-	{ UPNPSECUREMODE, "secure_mode"}
++	{ UPNPSECUREMODE, "secure_mode"},
++	{ UPNPTIMETOLIVE, "time_to_live"}
+ };
+ 
+ int
+Index: miniupnpd-1.9.20150609/options.h
+===================================================================
+--- miniupnpd-1.9.20150609.orig/options.h
++++ miniupnpd-1.9.20150609/options.h
+@@ -65,7 +65,8 @@ enum upnpconfigoptions {
+ 	UPNPLEASEFILE,			/* lease_file */
+ #endif
+ 	UPNPMINISSDPDSOCKET,	/* minissdpdsocket */
+-	UPNPENABLE				/* enable_upnp */
++	UPNPENABLE,				/* enable_upnp */
++	UPNPTIMETOLIVE			/* time_to_live*/
+ };
+ 
+ /* readoptionsfile()
+Index: miniupnpd-1.9.20150609/upnpglobalvars.c
+===================================================================
+--- miniupnpd-1.9.20150609.orig/upnpglobalvars.c
++++ miniupnpd-1.9.20150609/upnpglobalvars.c
+@@ -12,6 +12,8 @@
+ #include "upnpglobalvars.h"
+ #include "upnpdescstrings.h"
+ 
++unsigned char time_to_live = 2;
++
+ /* network interface for internet */
+ const char * ext_if_name = 0;
+ 
+Index: miniupnpd-1.9.20150609/upnpglobalvars.h
+===================================================================
+--- miniupnpd-1.9.20150609.orig/upnpglobalvars.h
++++ miniupnpd-1.9.20150609/upnpglobalvars.h
+@@ -13,6 +13,9 @@
+ #include "miniupnpdtypes.h"
+ #include "config.h"
+ 
++/*time to live*/
++extern unsigned char time_to_live;
++
+ /* name of the network interface used to acces internet */
+ extern const char * ext_if_name;
+ 

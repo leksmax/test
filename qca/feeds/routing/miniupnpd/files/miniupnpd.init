@@ -68,7 +68,7 @@ start() {
 	local extip port usesysuptime conffile serial_number model_number
 	local uuid notify_interval presentation_url enable_upnp
 	local upnp_lease_file clean_ruleset_threshold clean_ruleset_interval
-        local ipv6_listening_ip
+        local ipv6_listening_ip time_to_live
 
 	config_get extiface config external_iface
 	config_get extzone config external_zone
@@ -88,6 +88,7 @@ start() {
 	config_get clean_ruleset_threshold config clean_ruleset_threshold
 	config_get clean_ruleset_interval config clean_ruleset_interval
 	config_get ipv6_listening_ip config ipv6_listening_ip
+	config_get time_to_live config time_to_live
 
 	local args
 
@@ -135,7 +136,7 @@ start() {
 		upnpd_write_bool enable_natpmp 1
 		upnpd_write_bool enable_upnp 1
 		upnpd_write_bool secure_mode 1
-		upnpd_write_bool pcp_allow_thirdparty 0
+		upnpd_write_bool pcp_allow_thirdparty 1
 		upnpd_write_bool system_uptime 1
 
 		[ -n "$upnp_lease_file" ] && \
@@ -150,7 +151,10 @@ start() {
 			echo "presentation_url=${presentation_url}" >>$tmpconf
 
 		[ -n "${notify_interval}" ] && \
-			echo "notify_interval=${notify_interval}" >>$tmpconf
+			echo "notify_interval=$(($notify_interval * 60))" >>$tmpconf
+
+		[ -n "${time_to_live}" ] && \
+			echo "time_to_live=${time_to_live}" >>$tmpconf
 
 		[ -n "${clean_ruleset_threshold}" ] && \
 			echo "clean_ruleset_threshold=${clean_ruleset_threshold}" >>$tmpconf
@@ -175,6 +179,8 @@ start() {
 
 		[ -n "${model_number}" ] && \
 			echo "model_number=${model_number}" >>$tmpconf
+
+		echo "friendly_name=`cat /module_name |tr '[A-Z]' '[a-z]'`" >>$tmpconf
 
 	    config_foreach conf_rule_add perm_rule "$tmpconf"
 	fi
