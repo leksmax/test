@@ -9,9 +9,7 @@ validate_system_section()
 	uci_validate_section system system "${1}" \
 		'hostname:string:OpenWrt' \
 		'conloglevel:uinteger' \
-		'buffersize:uinteger' \
-		'timezone:string:UTC' \
-		'zonename:string'
+		'buffersize:uinteger'
 }
 
 system_config() {
@@ -26,11 +24,7 @@ system_config() {
 
 	echo "$hostname" > /proc/sys/kernel/hostname
 	[ -z "$conloglevel" -a -z "$buffersize" ] || dmesg ${conloglevel:+-n $conloglevel} ${buffersize:+-s $buffersize}
-	echo "$timezone" > /tmp/TZ
-	[ -n "$zonename" ] && [ -f "/usr/share/zoneinfo/$zonename" ] && ln -s "/usr/share/zoneinfo/$zonename" /tmp/localtime
 
-	# apply timezone to kernel
-	date -k
 }
 
 reload_service() {

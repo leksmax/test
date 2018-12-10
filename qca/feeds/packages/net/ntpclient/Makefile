@@ -48,6 +48,8 @@ define Package/ntpclient/install
 	$(INSTALL_DATA) ./files/ntpclient.hotplug $(1)/etc/hotplug.d/iface/20-ntpclient
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/ntpclient.config $(1)/etc/config/ntpclient
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./files/ntpclient.init $(1)/etc/init.d/ntpc
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ntpclient $(1)/usr/sbin/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/adjtimex $(1)/usr/sbin/
