@@ -154,6 +154,7 @@ int img_show(struct dni_hdr *hdr)
     printf("Image Info:\n");
     printf("    board_id : %s\n", hdr->device);
     printf("    version  : %s\n", hdr->version);
+    printf("    region   : %s\n", hdr->region);
     printf("    hw_id    : %s\n", hdr->hw_id);
 
     return 0;
