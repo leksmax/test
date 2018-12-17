@@ -1,6 +1,6 @@
 
 /*
- * 需要配合ledtrigger使用
+ * 需要配合led trigger使用
  */
 
 #include <stdio.h>
@@ -18,6 +18,7 @@
 #define LED_ON          1
 #define LED_BLINK       2
 #define LED_FAST_BLINK  3
+#define LED_NETDEV      4
 
 struct gpio_led {
     char *name;
@@ -30,6 +31,11 @@ enum LED_INDEX {
     LED_INDEX_WAN1,
     LED_INDEX_CLOUD,
     LED_INDEX_VPN,
+    LED_INDEX_USB1,
+    LED_INDEX_USB2,
+    LED_INDEX_ESATA,
+    LED_INDEX_RFKILL,
+    LED_INDEX_WPS,
     LED_INDEX_MAX
 };
 
@@ -47,21 +53,52 @@ struct gpio_led br500_leds[] = {
         .name = "power",
         .color_int = LED_AMBER | LED_GREEN,
         .index = LED_INDEX_PWR,
-    },
-    {
+    }, {
         .name = "wan1",
         .color_int = LED_AMBER | LED_GREEN,
         .index = LED_INDEX_WAN1,        
-    },
-    {
+    }, {
         .name = "cloud",
         .color_int = LED_GREEN,
         .index = LED_INDEX_CLOUD,
-    },
-    {
+    }, {
         .name = "vpn",
         .color_int = LED_GREEN,
         .index = LED_INDEX_VPN,
+    }, {
+        /* terminating entry */
+    }
+};
+
+struct gpio_led r7800_leds[] = {
+    {
+        .name = "power",
+        .color_int = LED_AMBER | LED_GREEN,
+        .index = LED_INDEX_PWR,
+    }, {
+        .name = "wan1",
+        .color_int = LED_AMBER | LED_GREEN,
+        .index = LED_INDEX_WAN1,        
+    }, {
+        .name = "usb1",
+        .color_int = LED_GREEN,
+        .index = LED_INDEX_USB1,
+    }, {
+        .name = "usb2",
+        .color_int = LED_GREEN,
+        .index = LED_INDEX_USB2,
+    }, {
+        .name = "esata",
+        .color_int = LED_GREEN,
+        .index = LED_INDEX_ESATA,
+    }, {
+        .name = "rfkill",
+        .color_int = LED_GREEN,
+        .index = LED_INDEX_RFKILL,
+    }, {
+        .name = "wps",
+        .color_int = LED_GREEN,
+        .index = LED_INDEX_WPS,
     }, {
         /* terminating entry */
     }
@@ -109,12 +146,19 @@ void led_fast_blink(char *label)
     sys_exec("echo \"100\" > %s/%s/delay_on", SYS_CLASS_LED, label);        
 }
 
+void led_netdev(char *label)
+{
+    led_trigger(label, "netdev");
+    sys_exec("echo \"eth0\" > %s/%s/device_name", SYS_CLASS_LED, label);      
+    sys_exec("echo \"link tx rx\" > %s/%s/mode", SYS_CLASS_LED, label);
+}
+
 void ledctrl_set(char *name, int led_color, int led_state)
 {
     char *color = NULL;
     char ledctrl_name[64] = {0};
     
-    switch(led_color)
+    switch (led_color)
     {
         case LED_AMBER:
             color = "amber";
@@ -128,7 +172,7 @@ void ledctrl_set(char *name, int led_color, int led_state)
 
     snprintf(ledctrl_name, sizeof(ledctrl_name), "%s_%s", name, color);
 
-    switch(led_state)
+    switch (led_state)
     {
         case LED_OFF:
             led_off(ledctrl_name);
@@ -142,6 +186,9 @@ void ledctrl_set(char *name, int led_color, int led_state)
         case LED_FAST_BLINK:
             led_fast_blink(ledctrl_name);
             break;
+        case LED_NETDEV:
+            led_netdev(ledctrl_name);
+            break;
         default:
             break;
     }
@@ -152,7 +199,7 @@ struct gpio_led *find_gpio_led(char *name)
 {
 	struct gpio_led *ret = NULL;
 
-	for(ret = br500_leds; ret->name != NULL; ret ++) 
+	for (ret = br500_leds; ret->name != NULL; ret ++) 
     {
 		if (strcmp(ret->name, name) == 0)
         {      
@@ -165,61 +212,65 @@ struct gpio_led *find_gpio_led(char *name)
 
 static int check_options()
 {
-    if(led_name == NULL)
+    if (led_name == NULL)
     {
         fprintf(stderr, "no led name specified!\n");
         return -1;
     }
 
-    if(led_color_str == NULL)
+    if (led_color_str == NULL)
     {
         fprintf(stderr, "no led color specified!\n");
         return -1;
     }
 
-    if(led_state_str == NULL)
+    if (led_state_str == NULL)
     {
         fprintf(stderr, "no led state specified!\n");
         return -1;
     }
 
     led = find_gpio_led(led_name);
-    if(led == NULL)
+    if (led == NULL)
     {
         fprintf(stderr, "unkown led name!\n");
         return -1;
     }
 
-    if(strcmp(led_color_str, "amber") == 0)
+    if (strcmp(led_color_str, "amber") == 0)
     {
         led_color_int = LED_AMBER;
     }
-    else if(strcmp(led_color_str, "green") == 0)
+    else if (strcmp(led_color_str, "green") == 0)
     {
         led_color_int = LED_GREEN;
     }
 
-    if(!(led_color_int & led->color_int))
+    if (!(led_color_int & led->color_int))
     {
         fprintf(stderr, "unkown led color for %s led!\n", led_name);
         return -1;
     }
 
-    if(strcmp(led_state_str, "on") == 0)
+    if (strcmp(led_state_str, "on") == 0)
     {
         led_state_int = LED_ON;
     }
-    else if(strcmp(led_state_str, "off") == 0)
+    else if (strcmp(led_state_str, "off") == 0)
     {
         led_state_int = LED_OFF;
     }
-    else if(strcmp(led_state_str, "blink") == 0)
+    else if (strcmp(led_state_str, "blink") == 0)
     {
         led_state_int = LED_BLINK;
     }
-    else if(strcmp(led_state_str, "fast_blink") == 0)
+    else if (strcmp(led_state_str, "fast_blink") == 0)
     {
         led_state_int = LED_FAST_BLINK;
+    }
+    else if (strcmp(led_state_str, "netdev") == 0)
+    {
+        led_state_int = LED_NETDEV;
     }
     else
     {
@@ -246,9 +297,9 @@ int main(int argc, char *argv[])
     int ret = 0;
     int opt = -1;
 
-    while((opt = getopt(argc, argv, "n:c:s:")) != -1)
+    while ((opt = getopt(argc, argv, "n:c:s:")) != -1)
     {
-        switch(opt)
+        switch (opt)
         {
             case 'n':
                 led_name = optarg;
@@ -265,7 +316,7 @@ int main(int argc, char *argv[])
     }
 
     ret = check_options();
-    if(ret < 0)
+    if (ret < 0)
     {
         usages();
     }
