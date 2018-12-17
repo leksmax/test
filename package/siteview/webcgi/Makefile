@@ -20,17 +20,16 @@ define Build/Prepare
 	$(CP) ./src/* $(PKG_BUILD_DIR)
 endef
 
-define Build/Compile
-endef
-
 define Package/webcgi/install
-	$(INSTALL_DIR) $(1)/www
-	$(CP) ./files/upload.html $(1)/www/
 	$(INSTALL_DIR) $(1)/www/cgi-bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/web-cgi $(1)/www/cgi-bin/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/upgrade.cgi $(1)/www/cgi-bin/
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/network.cli $(1)/usr/sbin/
+	$(INSTALL_DIR) $(1)/etc/config
+	$(CP) ./files/webcgi.config $(1)/etc/config/webcgi
+	$(INSTALL_DIR) $(1)/www
+	$(CP) ./files/upload.html $(1)/www/
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/33_migrate_wifi $(1)/etc/uci-defaults
 endef
