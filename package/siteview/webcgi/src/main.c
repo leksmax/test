@@ -28,6 +28,7 @@
 #include "system.h"
 #include "network.h"
 #include "wireless.h"
+#include "traffic_meter.h"
 
 int cgi_errno = CGI_ERR_OK;
 
@@ -41,7 +42,7 @@ int handle_common(cgi_request_t *req, cgi_response_t *resp)
 static cgi_handler_t handlers[] = {
     /* login */
     { .url = "/do_login", .handler = handle_login, .auth = PRIV_NONE },
-    { .url = "/get_login_info", .handler = get_login_info, = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/get_login_info", .handler = get_login_info, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/do_logout", .handler = handle_logout, .auth = PRIV_GUEST | PRIV_ADMIN },
     /* status */
     { .url = "/get_port_status", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },  /* 端口状态，link，duplex，speed */
@@ -103,7 +104,12 @@ static cgi_handler_t handlers[] = {
     /* ntp */
     { .url = "/get_ntp_config", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/set_ntp_config", .handler = handle_common, .auth = PRIV_ADMIN },
-    { .url = "/sync_current_time", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/sync_current_time", .handler = handle_common, .auth = PRIV_ADMIN },    
+    /* traffic meter */
+    { .url = "/get_traffic_meter_config", .handler = get_traffic_meter_config, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/set_traffic_meter_config", .handler = set_traffic_meter_config, .auth = PRIV_ADMIN },
+    { .url = "/get_traffic_meter_list", .handler = get_traffic_meter_list, .auth = PRIV_GUEST | PRIV_ADMIN },    
+    { .url = "/restart_counter", .handler = restart_counter, .auth = PRIV_ADMIN },
     { /* terminating entry */ }
 };
 
