@@ -1,0 +1,44 @@
+#!/bin/sh
+. /lib/functions.sh
+
+led_enabled=""
+disconnect_network=""
+
+load_config(){
+	config_load "traffic"
+	
+	config_get led_enabled action led_enabled
+	config_get disconnect_network action disconnect_network
+}
+
+
+open_action(){
+	load_config
+	if [ "x${led_enabled}" == "x1" ]; then
+		/sbin/ledcontrol -n wan1 -c amber -s blink
+	fi
+	
+	if [ "x${disconnect_network}" == "x1" ]; then
+		echo "open disconnect network"
+	fi
+}
+
+close_action(){
+	load_config
+	if [ "x${led_enabled}" == "x1" ]; then
+		/sbin/ledcontrol -n wan1 -c amber -s off
+	fi
+	
+	if [ "x${disconnect_network}" == "x1" ]; then		
+		echo "close disconnect network"
+	fi
+}
+
+case "${1}" in
+	start)
+		open_action
+	;;
+	stop)
+		close_action
+	;;
+esac

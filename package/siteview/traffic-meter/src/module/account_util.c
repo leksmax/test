@@ -1,4 +1,5 @@
 #include <linux/vmalloc.h>
+#include <linux/version.h>
 #include <ipt_account.h>
 
 /**************************************************
@@ -128,12 +129,12 @@ void ipt_account_table_destroy(struct t_account_table *table)
 		{
 	    	write_lock_bh(&ipt_account_lock);	
 	    	list_del(&table->list);
-		
+			
 			ipt_account_host_destroy(&table->host_list_head);	
 			
 	    	write_unlock_bh(&ipt_account_lock);
 			remove_proc_entry(table->name, ipt_account_procdir);
-			vfree(table);
+			kfree(table);
 	  	}
 	}
 
@@ -148,12 +149,14 @@ int clear_table_data(struct t_account_table *table)
 		memset(&table->d, 0x0, sizeof(struct t_account_host));
 		memset(&table->a, 0x0, sizeof(struct t_account_host));
 		table->host_num = 0;
+		table->signal_flag = 2;
 		table->timespec = CURRENT_TIME_SEC;
 		atomic_set(&table->use, 1);
 
 	  	write_lock_bh(&table->stats_lock);
 		ipt_account_host_destroy(&table->host_list_head);		
 	  	write_unlock_bh(&table->stats_lock);
+
 		return 0;
 	}
 	return -1;
@@ -178,7 +181,8 @@ int clear_all_table_data(void)
 	list_for_each(pos, g_lru_table) {
 		struct t_account_table *table = list_entry(pos, struct t_account_table, list);
 		write_lock_bh(&ipt_account_lock);
-		ret = clear_table_data(table);
+		//ret = clear_table_data(table);
+		table->signal_flag = 2;
 		write_unlock_bh(&ipt_account_lock);
 	}
 	return ret;
@@ -200,7 +204,7 @@ int del_host_from_table(unsigned char *name, unsigned char *macaddr)
 	return -1;
 }
 
-int set_limit_size_of_table(unsigned char *name, uint64_t size)
+int set_limit_size_of_table(uint8_t limit_direction, unsigned char *name, uint64_t size)
 {
 	struct t_account_table *table = NULL;
 	
@@ -211,6 +215,7 @@ int set_limit_size_of_table(unsigned char *name, uint64_t size)
 	{
 	  	write_lock_bh(&ipt_account_lock);
 		table->limit_size = size;
+		table->limit_direction = limit_direction;
 	  	write_unlock_bh(&ipt_account_lock);
 		return 0;
 	}
@@ -221,7 +226,7 @@ int set_zero_time_of_table(unsigned char *name, uint64_t zero_time)
 {
 	struct t_account_table *table = NULL;
 
-	ACCOUNT_DEBUG_PRINTK("zero_time = %ld\n", zero_time);
+	ACCOUNT_DEBUG_PRINTK("zero_time = %llu\n", zero_time);
 	
 	table = find_account_table_by_name(name);
 	if(table != NULL)
@@ -234,3 +239,60 @@ int set_zero_time_of_table(unsigned char *name, uint64_t zero_time)
 	return -1;
 }
 
+int get_account_data_of_table(unsigned char *name, struct traffic_meter_info *data)
+{
+	struct t_account_table *table = NULL;
+
+	table = find_account_table_by_name(name);
+	if(table != NULL)
+	{
+		data->src_bytes = table->s.b_all;
+		data->src_packet = table->s.p_all;
+		data->dst_bytes = table->d.b_all;
+		data->dst_packet = table->d.p_all;
+		data->total_bytes = table->a.b_all;
+		data->total_packet = table->a.p_all;
+		data->timespec = table->timespec.tv_sec;
+		return 0;
+	}
+
+	return -1;
+}
+
+int get_table_name_list(unsigned char *data, int data_len)
+{
+	int len = 0;
+	struct list_head *pos;
+	
+  	read_lock_bh(&ipt_account_lock);
+	list_for_each(pos, g_lru_table) {
+		struct t_account_table *table = list_entry(pos,
+			struct t_account_table, list);
+		len += snprintf(data + len, data_len - len, "%s ", table->name);
+	}
+  	read_unlock_bh(&ipt_account_lock);
+
+	return 0;
+}
+
+int sync_data_of_table(struct account_handle_sockopt handle)
+{
+	struct t_account_table *table = NULL;
+	
+	table = find_account_table_by_name(handle.name);
+	if(table != NULL)
+	{
+  		write_lock_bh(&ipt_account_lock);	
+		table->s.b_all += handle.data.info.src_bytes;
+		table->s.p_all += handle.data.info.src_bytes;
+		table->d.b_all += handle.data.info.dst_bytes;
+		table->d.p_all += handle.data.info.dst_bytes;
+		table->a.b_all += handle.data.info.total_bytes;
+		table->a.p_all += handle.data.info.total_bytes;
+		table->timespec.tv_sec = handle.data.info.timespec;
+	  	write_unlock_bh(&ipt_account_lock);
+		return 0;
+	}
+	
+	return -1;
+}

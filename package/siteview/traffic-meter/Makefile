@@ -13,6 +13,7 @@ define KernelPackage/ipt-maccount
     TITLE   := maccount match netfilter module
     DEPENDS := +kmod-ipt-core
     FILES   := $(PKG_BUILD_DIR)/module/ipt_account.ko
+	AUTOLOAD := $(call AutoLoad,41,ipt_account)
 endef
 
 define Package/iptables-mod-maccount
@@ -79,7 +80,9 @@ define Package/traffic-meter/install
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_DATA) ./files/traffic_meter.config $(1)/etc/config/traffic
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./files/traffic_meter.init $(1)/etc/init.d/traffic_meter
+	$(INSTALL_BIN) ./files/traffic_meter.init $(1)/etc/init.d/traffic_init
+	$(INSTALL_DIR) $(1)/lib/traffic
+	$(INSTALL_BIN) ./files/traffic_meter.script $(1)/lib/traffic/
 endef
 
 $(eval $(call KernelPackage,ipt-maccount))

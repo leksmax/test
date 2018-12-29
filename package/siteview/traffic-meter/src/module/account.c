@@ -8,7 +8,6 @@
 #include <linux/in.h>
 #include <linux/netfilter/x_tables.h>
 #include <ipt_account.h>
-#include <account_sockopt.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Piotr Gasidlo <quaker@barbara.eu.org>");
@@ -129,17 +128,57 @@ static struct file_operations ipt_account_proc_fops = {
 	.release = ipt_account_proc_release
 };
 
+static void send_signal_to_user(struct work_struct *work)
+{
+	struct file *fp;
+	char pid[8];
+	struct t_account_table *table = NULL;
+	struct task_struct *p = NULL;
+
+	fp = filp_open("/var/run/traffic_meter.pid", O_RDONLY, 0);
+	if(IS_ERR(fp))
+		return;
+
+	if(fp->f_op && fp->f_op->read)
+	{
+		if(fp->f_op->read(fp, pid, 8, &fp->f_pos) > 0)
+		{
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
+			p = pid_task(find_get_pid(simple_strtoul(pid, NULL, 10)), PIDTYPE_PID);
+#else
+			p = find_task_by_pid(simple_strtoul(pid, NULL, 10));
+#endif
+			if( NULL != p )
+			{
+				table = container_of(work, struct t_account_table, account_work);
+
+				if(table->signal_flag == 1)
+				{
+					ACCOUNT_DEBUG_PRINTK("flag = %d, size:%llu\n", table->signal_flag, table->limit_size);
+					write_lock_bh(&ipt_account_lock);
+					table->signal_flag = 0;
+					write_unlock_bh(&ipt_account_lock);
+					send_sig(SIGUSR1, p, 0); // 关闭
+				}
+			}
+		}
+	}
+	filp_close(fp, NULL);
+	return;
+}
+
 static int ipt_account_table_init(struct xt_match_ipt_account *match)
 { 
 	struct t_account_table *table;
 
 	ACCOUNT_DEBUG_PRINTK("name = %s\n", match->name);
 
-	table = vmalloc(sizeof(struct t_account_table));
+	table = kmalloc(sizeof(struct t_account_table), GFP_KERNEL);
 	if (table == NULL) {
 		printk(KERN_ERR "vmalloc failed.\n");
 		return -1;
 	}
+	
 	
 	/*init table*/
 	strncpy(table->name, match->name, IPT_ACCOUNT_NAME_LEN); 
@@ -149,6 +188,8 @@ static int ipt_account_table_init(struct xt_match_ipt_account *match)
 	table->netmask = match->netmask;
 	table->host_num = 0;
 	table->timespec = CURRENT_TIME_SEC;
+	table->limit_direction = NOT_LIMIT;
+	table->signal_flag = 1;
 	table->limit_size = 0;
 	table->zero_time = 0;
 	
@@ -167,11 +208,12 @@ static int ipt_account_table_init(struct xt_match_ipt_account *match)
 	if(proc_create_data(table->name, S_IWUSR | S_IRUSR, 
 		ipt_account_procdir, &ipt_account_proc_fops, table) == NULL)
 	{
-		vfree(table);
+		kfree(table);
 		printk(KERN_ERR "pror create data failed.\n");
 		return -1;
 	}
-  
+	INIT_WORK(&table->account_work, send_signal_to_user);
+
 	return 0;
 }
 
@@ -284,6 +326,27 @@ void update_or_add_host_to_table(struct t_account_table *table, struct t_account
 	}
 }
 
+void check_limit_data_size(struct t_account_table *t)
+{
+	if(t != NULL)
+	{
+		if(t->limit_direction != NOT_LIMIT && t->limit_size != 0)
+		{
+			if( (t->limit_direction == LIMIT_ALL && t->limit_size <= t->a.b_all) ||
+				(t->limit_direction == LIMIT_DOWNLOAD && t->limit_size <= t->d.b_all) ||
+				(t->limit_direction == LIMIT_UPLOAD && t->limit_size <= t->s.b_all) )
+			{
+				if(t->signal_flag == 1)
+				{
+					ACCOUNT_DEBUG_PRINTK("flag = %d, size:%llu\n", t->signal_flag, t->limit_size);
+					// 发信号给应用层，开启相对的动作
+					schedule_work(&t->account_work);
+				}
+			}
+		}
+	}
+}
+
 static bool account_match(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	bool ret = false;
@@ -337,14 +400,11 @@ static bool account_match(const struct sk_buff *skb, struct xt_action_param *par
 	{
 		table = find_account_table_by_name(info->name);
 		if(table != NULL)
-		{
-			if(table->limit_size != 0 && table->limit_size <= table->a.b_all)
-			{
-				//printk(KERN_INFO "match bytes have big limit_size:%llu\n", table->limit_size);
-				// 发信号给应用层，做相对动作
-			}
-		
+		{	
+			check_limit_data_size(table);
+
 			write_lock_bh(&ipt_account_lock);
+			
 			table->a.b_all += host.a.b_all;
 			table->a.p_all += host.a.p_all;
 			table->s.b_all += host.s.b_all;
@@ -352,9 +412,7 @@ static bool account_match(const struct sk_buff *skb, struct xt_action_param *par
 			table->d.b_all += host.d.b_all;
 			table->d.p_all += host.d.p_all;
 
-			//write_lock_bh(&table->stats_lock);
 			update_or_add_host_to_table(table, &host);
-			//write_unlock_bh(&table->stats_lock);
 			write_unlock_bh(&ipt_account_lock);
 		}
 	}
@@ -431,7 +489,7 @@ static int __init ipt_account_init(void)
 	add_timer(&data_traffic_timer);
 
 	return 0;
-
+	
 cleanup_sockopt:
 	nf_unregister_sockopt(&ipt_account_sockopt);
 cleanup_dir:
@@ -444,9 +502,13 @@ static void ipt_account_exit(void)
 {
 	printk(KERN_INFO "Delete account timer\n");
 	del_timer(&data_traffic_timer);
+	
 	nf_unregister_sockopt(&ipt_account_sockopt);
+	
 	remove_proc_entry(IPT_ACCOUNT_PROC_NAME, init_net.proc_net);
+	
 	xt_unregister_match(&xt_ipt_account_match_reg);
+
 	return ;
 }
 

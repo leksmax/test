@@ -4,7 +4,7 @@ SOURCES := main.c utils.c
 OBJS 	:= $(SOURCES:.c=.o)
 
 CFLAGS  += -Os -pipe
-LDFLAGS += -lm
+LDFLAGS += -lm -lpthread
 IFLAGS  += -I./
 
 all: $(TARGET)
