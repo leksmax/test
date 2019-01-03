@@ -3,8 +3,8 @@
 #define __CONFIG_H_
 
 #define CONFIG_FILE "nvram"
-#define SECTION_NAME CONFIG_FILE
-#define UCI_PREFIX SECTION_NAME".dni."
+#define SECTION_TYPE CONFIG_FILE
+#define UCI_PREFIX SECTION_TYPE".flash."
 
 #define CONFIG_MAX_PARAM_LEN	64
 #define CONFIG_MAX_VALUE_LEN	4096

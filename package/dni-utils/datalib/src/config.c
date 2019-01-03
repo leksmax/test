@@ -30,7 +30,7 @@ int config_show()
 	    struct uci_element *n;
 		struct uci_section *s = uci_to_section(e);
 
-        if (strcmp(s->type, SECTION_NAME) != 0)
+        if (strcmp(s->type, SECTION_TYPE) != 0)
             continue;
 
         uci_foreach_element(&s->options, n) {
@@ -72,7 +72,7 @@ char *config_get(const char *name)
     memset(path, 0x0, CONFIG_MAX_PARAM_LEN);
     memset(cfg_cache, 0x0, CONFIG_MAX_VALUE_LEN);
     
-    snprintf(path, CONFIG_MAX_PARAM_LEN, "%s.dni.%s", SECTION_NAME, name);
+    snprintf(path, CONFIG_MAX_PARAM_LEN, "%s.dni.%s", SECTION_TYPE, name);
 
     ctx = uci_alloc_context();
     if (!ctx)
