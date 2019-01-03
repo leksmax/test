@@ -28,6 +28,10 @@
 #include "system.h"
 #include "network.h"
 #include "wireless.h"
+#include "vlan.h"
+#include "ipsec.h"
+#include "firewall.h"
+#include "services.h"
 #include "traffic_meter.h"
 
 int cgi_errno = CGI_ERR_OK;
@@ -49,10 +53,10 @@ static cgi_handler_t handlers[] = {
     { .url = "/get_system_status", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/attached_devices", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
     /* vlan */
-    { .url = "/get_vlan_entry", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/vlan_entry_config", .handler = handle_common, .auth = PRIV_ADMIN },
-    { .url = "/port_vlan_list", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/port_vlan_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/get_vlan_entry", .handler = get_vlan_entry, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/vlan_entry_config", .handler = vlan_entry_config, .auth = PRIV_ADMIN },
+    { .url = "/port_vlan_list", .handler = port_vlan_list, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/port_vlan_config", .handler = port_vlan_config, .auth = PRIV_ADMIN },
     /* lan */
     { .url = "/get_interface_lan", .handler = get_interface_lan, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/get_lan_status", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
@@ -63,31 +67,44 @@ static cgi_handler_t handlers[] = {
     { .url = "/get_wan_status", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/get_wan_config", .handler = get_wan_config, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/set_wan_config", .handler = set_wan_config, .auth = PRIV_ADMIN },
+    /* dualwan */
+    { .url = "/get_dulwan_config", .handler = get_dualwan_config, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/set_dulwan_config", .handler = set_dualwan_config, .auth = PRIV_ADMIN },
+    { .url = "/get_dulwan_status", .handler = get_dualwan_status, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/dualwan_check_config", .handler = dualwan_check_config, .auth = PRIV_ADMIN },
     /* ipv6 */
+    { .url = "/get_wan6_status", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/get_wan6_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/set_wan6_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/get_lan6_status", .handler = handle_common, .auth = PRIV_ADMIN },
     { .url = "/get_lan6_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/set_lan6_config", .handler = handle_common, .auth = PRIV_ADMIN },
     /* wireless */
     { .url = "/get_regdmn_list", .handler = get_regdmn_list, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/get_wifi_config", .handler = get_wifi_config, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/set_wifi_config", .handler = set_wifi_config, .auth = PRIV_ADMIN },
     /* route */
-    { .url = "/static_route_list", .handler = get_wifi_config, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/static_route_config", .handler = set_wifi_config, .auth = PRIV_ADMIN },    
+    { .url = "/static_route_list", .handler = static_route_list, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/static_route_config", .handler = static_route_config, .auth = PRIV_ADMIN },
+    { .url = "/get_policy_rules", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/policy_rule_config", .handler = handle_common, .auth = PRIV_ADMIN },
     /* ipsec */
-    { .url = "/get_ipsec_policy", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/ipsec_policy_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    //{ .url = "/get_ipsec_policy", .handler = get_ipsec_policy, .auth = PRIV_GUEST | PRIV_ADMIN },
+    //{ .url = "/ipsec_policy_config", .handler = ipsec_policy_config, .auth = PRIV_ADMIN },
     /* ddns */
-    { .url = "/get_ddns_services", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/get_ddns_config", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/set_ddns_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/get_ddns_services", .handler = get_ddns_services, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/get_ddns_config", .handler = get_ddns_config, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/set_ddns_config", .handler = set_ddns_config, .auth = PRIV_ADMIN },
     /* upnpd */
-    { .url = "/get_upnpd_rules", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/get_upnpd_config", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/set_upnpd_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/get_upnpd_rules", .handler = get_upnpd_rules, .auth = PRIV_GUEST | PRIV_ADMIN },     
+    { .url = "/del_upnpd_rules", .handler = del_upnpd_rules, .auth = PRIV_ADMIN },
+    { .url = "/get_upnpd_config", .handler = get_upnpd_config, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/set_upnpd_config", .handler = set_upnpd_config, .auth = PRIV_ADMIN },
     /* firewall */
-    { .url = "/port_forward_list", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/port_forward_config", .handler = handle_common, .auth = PRIV_ADMIN },    
-    { .url = "/port_trigger_list", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/port_trigger_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/port_forward_list", .handler = port_forward_list, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/port_forward_config", .handler = port_forward_config, .auth = PRIV_ADMIN },    
+    { .url = "/port_trigger_list", .handler = port_trigger_list, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/port_trigger_config", .handler = port_trigger_config, .auth = PRIV_ADMIN },
     /* firmware */
     { .url = "/upgrade_check", .handler = upgrade_check, .auth = PRIV_ADMIN },
     { .url = "/firmware_upgrade", .handler = firmware_upgrade, .auth = PRIV_ADMIN },
@@ -97,14 +114,14 @@ static cgi_handler_t handlers[] = {
     { .url = "/backup_config", .handler = do_backup_config, .auth = PRIV_ADMIN },
     { .url = "/restore_config", .handler = do_restore_config, .auth = PRIV_ADMIN },
     /* syslog */
-    { .url = "/get_syslog_info", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/clear_syslog_info", .handler = handle_common, .auth = PRIV_ADMIN },
-    { .url = "/get_syslog_config", .handler = upgrade_check, .auth = PRIV_ADMIN },
-    { .url = "/set_syslog_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/get_syslog_info", .handler = get_syslog_info, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/clear_syslog_info", .handler = clear_syslog_info, .auth = PRIV_ADMIN },
+    { .url = "/get_syslog_config", .handler = get_syslog_config, .auth = PRIV_ADMIN },
+    { .url = "/set_syslog_config", .handler = set_syslog_config, .auth = PRIV_ADMIN },
     /* ntp */
-    { .url = "/get_ntp_config", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/set_ntp_config", .handler = handle_common, .auth = PRIV_ADMIN },
-    { .url = "/sync_current_time", .handler = handle_common, .auth = PRIV_ADMIN },    
+    { .url = "/get_ntp_config", .handler = get_ntp_config, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/set_ntp_config", .handler = set_ntp_config, .auth = PRIV_ADMIN },
+    { .url = "/sync_current_time", .handler = sync_current_time, .auth = PRIV_ADMIN },
     /* traffic meter */
     { .url = "/get_traffic_meter_config", .handler = get_traffic_meter_config, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/set_traffic_meter_config", .handler = set_traffic_meter_config, .auth = PRIV_ADMIN },

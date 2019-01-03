@@ -156,13 +156,12 @@ int config_uncommit(const char *name)
 
 #define WEB_API
 
-void webs_file_header(wp_t *wp, char *filename, char *content_type)
+void webs_file_header(wp_t *wp, char *filename, int content_len)
 {
     fprintf(wp, "Status: 200 OK\r\n");
     fprintf(wp, "Content-Disposition: attachment; filename=\"%s\"\r\n", filename);
-    fprintf(wp, "Content-type: %s\r\n", content_type);
-    fprintf(wp, "Pragma: no-cache\r\n");
-    fprintf(wp, "Cache-Control: no-cache\r\n");    
+    fprintf(wp, "Content-Length: %d\r\n", content_len);
+    fprintf(wp, "Content-Type: application/octet-stream\r\n");
     fprintf(wp, "\r\n");
 }
 
@@ -171,7 +170,7 @@ void webs_json_header(wp_t *wp)
     fprintf(wp, "Status: 200 OK\r\n");
     fprintf(wp, "Content-type: application/json; charset=utf-8\r\n");
     fprintf(wp, "Pragma: no-cache\r\n");
-    fprintf(wp, "Cache-Control: no-cache\r\n");    
+    fprintf(wp, "Cache-Control: no-cache\r\n");
     fprintf(wp, "\r\n");
 }
 

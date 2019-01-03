@@ -49,25 +49,39 @@ void cgi_reponse_free(cgi_response_t *resp)
 int do_handler(cgi_handler_t *map[], cgi_request_t *req, cgi_response_t *resp)
 {
     int ret = 0;
+    int found = 0;
     struct sysinfo s_info;
-	cgi_handler_t *current = NULL;
+	struct cgi_handler *current = NULL;
 
 	if (req->url == NULL)
     {
         return ret;
 	}
 
+    /* 路由核心基础API */
 	for (current = map; current->url != NULL; current ++) 
     {    
 		if (strcmp(req->url, current->url) == 0)
-        {      
+        {
+            found = 1;
             break;
         }
 	}
 
-    if (!current->url)
+    /* 扩展功能API，非标准路由功能API */
+    if (!found)
     {
-        cgi_errno = 501;
+        current = cgi_plugin_api_find(req->url);
+        if (current)
+        {
+            found = 1;
+        }
+    }
+
+    if (!found)
+    {
+        cgi_errno = CGI_ERR_NOT_FOUND;
+        goto out;
     }
 
     /*
@@ -91,6 +105,8 @@ int do_handler(cgi_handler_t *map[], cgi_request_t *req, cgi_response_t *resp)
             update_cgi_session(req->sess);
         }
     }
+
+out:
 
     if (cgi_errno != CGI_ERR_OK)
     {
@@ -132,7 +148,7 @@ int process_request(cgi_request_t *req)
     envStr = getenv("QUERY_STRING");
     if (envStr != NULL)
     {
-        
+        /* 暂时忽略不处理 */
     }
 
     req->out = stdout;
@@ -214,18 +230,25 @@ int cgi_servlet_init(cgi_handler_t *map[])
     ret = process_request(req);
     if (ret < 0)
     {
-        
+        goto out;
+    }
+
+    ret = cgi_plugin_api_init();
+    if (ret < 0)
+    {
+        goto out;
     }
 
     ret = do_handler(map, req, resp);
     if (ret < 0)
     {
-        
+        goto out;
     }
 
 out:
     cgi_request_free(req);
     cgi_reponse_free(resp);
+    cgi_plugin_api_destroy();
 
     return ret;
 }

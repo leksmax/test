@@ -4,6 +4,11 @@
 
 #include "session.h"
 
+enum {
+    WEB_CGI = 0, /* default */
+    SHELL_CLI = 1
+};
+
 #define MULTIPART_CONTENT_TYPE "multipart/form-data"
 
 typedef struct cgi_request {

@@ -2,6 +2,9 @@
 #ifndef __UTILS_H_
 #define __UTILS_H_
 
+#include <uci.h>
+
+#include "list.h"
 #include "cjson.h"
 
 extern int cgi_errno;
@@ -15,7 +18,12 @@ enum CGI_ERRNO {
     CGI_ERR_PARAM = 101,            /* 参数格式错误 */
     CGI_ERR_CFG_PARAM = 102,        /* 配置参数不正确，缺少参数,或者参数校验不对 */
     CGI_ERR_CFG_OVERMUCH = 103,     /* 配置过多，已超过上限 */
-    CFI_ERR_CFG_FILE = 104,         /* 配置文件错误 */
+    CGI_ERR_CFG_FILE = 104,         /* 配置文件错误 */
+    CGI_ERR_CFG_DUPLICATE = 105,    /* 重复的配置 */
+    CGI_ERR_UPLOAD = 110,           /* 文件上传出错 */
+
+    CGI_ERR_CREATE_BACKUP = 105,    /* 生成配置文件出错 */
+    CGI_ERR_BACKUP_CHECK = 106,     /* 配置文件检查失败 */
     
     CGI_ERR_FW_OVERSIZE = 190,      /* 固件超过最大大小限制 */
     CGI_ERR_FW_CHECK = 191,         /* 固件检查失败 */
@@ -26,6 +34,7 @@ enum CGI_ERRNO {
     CGI_ERR_AUTH_CHECK = 403,       /* 用户名或密码错误 */
     CGI_ERR_AUTH_REACHED = 404,     /* 尝试次数太多 */
     CGI_ERR_AUTH_MULTI = 405,       /* 多用户登录 */
+    CGI_ERR_AUTH_FORBID = 406,      /* 拒绝访问 */
     
     CGI_ERR_INTERNAL = 500,         /* CGI内部错误 */
     CGI_ERR_NOT_FOUND = 501,        /* 找不到该接口 */

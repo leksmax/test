@@ -6,56 +6,113 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "servlet.h"
+
+#include "webcgi.h"
 #include "network.h"
-#include "utils.h"
 
-const char *lan_section_names[] = {
-    "lan",
-    "lan2",
-    "lan3",
-    "lan4"
+const char *lan_names[_LAN_UNIT_MAX] = {
+    "(bug)",
+    "LAN1",
+    "LAN2",
+    "LAN3",
+    "LAN4",
 };
 
-const char *wan_section_names[] = {
-    "wan",
-    "wan2",
-    "wan3",
-    "wan4"
+const char *wan_names[_WAN_UNIT_MAX] = {
+    "(bug)",
+    "WAN1",
+    "WAN2",
 };
+
+char *config_get_wan(int unit, const char *name)
+{
+    char wanx_param[128] = {0};
+    snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+    return config_get(wanx_param);
+}
+
+int config_get_wan_int(int unit, const char *name)
+{
+    char wanx_param[128] = {0};
+    snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);    
+    return config_get_int(wanx_param);
+}
+
+int config_set_wan(int unit, const char *name, char *value)
+{
+    char wanx_param[128] = {0};
+    snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+    return config_set(wanx_param, value);
+}
+
+int config_set_wan_int(int unit, const char *name, int value)
+{
+    char wanx_param[128] = {0};
+    snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+    return config_set_int(wanx_param, value);    
+}
+
+char *config_get_wan6(int unit, const char *name)
+{
+    char wanx_param[128] = {0};
+    snprintf(wanx_param, sizeof(wanx_param), "net6conf.wan%d.%s", unit, name);
+    return config_get(wanx_param);
+}
+
+int config_get_wan6_int(int unit, const char *name)
+{
+    char wanx_param[128] = {0};
+    snprintf(wanx_param, sizeof(wanx_param), "net6conf.wan%d.%s", unit, name);    
+    return config_get_int(wanx_param);
+}
+
+int config_set_wan6(int unit, const char *name, char *value)
+{
+    char wanx_param[128] = {0};
+    snprintf(wanx_param, sizeof(wanx_param), "net6conf.wan%d.%s", unit, name);
+    return config_set(wanx_param, value);
+}
+
+int config_set_wan6_int(int unit, const char *name, int value)
+{
+    char wanx_param[128] = {0};
+    snprintf(wanx_param, sizeof(wanx_param), "net6conf.wan%d.%s", unit, name);
+    return config_set_int(wanx_param, value);    
+}
+
+char *get_wan_ifname(int unit)
+{
+    return config_get_wan(unit, "ifname");
+}
 
 int get_lan_unit(char *name)
 {
-    int unit = 0;
+    int unit;
+
+    for (unit = 1; unit < _LAN_UNIT_MAX; unit ++)
+    {
+        if (strcmp(name, lan_names[unit]) != 0)
+        {
+            return unit;
+        }
+    }
     
-    if (!name)
-    {
-        return -1;
-    }
-
-    if((sscanf(name, "LAN%d", &unit)) != 1)
-    {
-        return -1;
-    }
-
-    return unit;
+    return LAN1_UNIT;    
 }
 
 int get_wan_unit(char *name)
 {
-    int unit = 0;
+    int unit;
+
+    for (unit = 1; unit < _WAN_UNIT_MAX; unit ++)
+    {
+        if (strcmp(name, wan_names[unit]) != 0)
+        {
+            return unit;
+        }
+    }
     
-    if (!name)
-    {
-        return -1;
-    }
-
-    if((sscanf(name, "WAN%d", &unit)) != 1)
-    {
-        return -1;
-    }
-
-    return unit;
+    return WAN1_UNIT;
 }
 
 #define ADP_NTWK
@@ -74,7 +131,7 @@ int libgw_get_lan_cfg(char *lan, lan_cfg_t *cfg)
     {
         return -1;
     }
-        
+
     strncpy(cfg->lan, lan, sizeof(cfg->lan) - 1);
     strncpy(cfg->ipaddr, config_get(LAN1_IPADDR), sizeof(cfg->ipaddr) - 1);
     strncpy(cfg->netmask, config_get(LAN1_NETMASK), sizeof(cfg->netmask) - 1);
@@ -138,30 +195,23 @@ int libgw_set_lan_cfg(char *lan, lan_cfg_t *cfg)
 
 int libgw_get_wan_cfg(char *wan, wan_cfg_t *cfg)
 {
-    int unit = 1;
-    int ignore = 0;
-    int start, limit;
-    uint32_t ip, mask;
-    uint32_t ip1, ip2;
-    struct in_addr addr;
     char dns[64] = {0};
+    int unit = WAN1_UNIT;
     
     unit = get_wan_unit(wan);
-    if (unit < 0)
-    {
-        return -1;
-    }
-        
+
     strncpy(cfg->wan, wan, sizeof(cfg->wan) - 1);
-    strncpy(cfg->proto, config_get(WAN1_PROTO), sizeof(cfg->proto) - 1);
-    strncpy(cfg->ipaddr, config_get(WAN1_IPADDR), sizeof(cfg->ipaddr) - 1);
-    strncpy(cfg->netmask, config_get(WAN1_NETMASK), sizeof(cfg->netmask) - 1);
-    strncpy(cfg->gateway, config_get(WAN1_GATEWAY), sizeof(cfg->gateway) - 1);
     
-    strncpy(cfg->pppoe_user, config_get(WAN1_PPPOE_USER), sizeof(cfg->pppoe_user) - 1);
-    strncpy(cfg->pppoe_pwd, config_get(WAN1_PPPOE_PWD), sizeof(cfg->pppoe_pwd) - 1);
-    strncpy(cfg->service, config_get(WAN1_PPPOE_SERVICE), sizeof(cfg->service) - 1);
-    strncpy(dns, config_get(WAN1_DNS), sizeof(dns) - 1);
+    strncpy(cfg->proto, config_get_wan(unit, WAN_PROTO), sizeof(cfg->proto) - 1);
+    strncpy(cfg->ipaddr, config_get_wan(unit, WAN_IPADDR), sizeof(cfg->ipaddr) - 1);
+    strncpy(cfg->netmask, config_get_wan(unit, WAN_NETMASK), sizeof(cfg->netmask) - 1);
+    strncpy(cfg->gateway, config_get_wan(unit, WAN_GATEWAY), sizeof(cfg->gateway) - 1);
+    
+    strncpy(cfg->pppoe_user, config_get_wan(unit, WAN_PPPOE_USER), sizeof(cfg->pppoe_user) - 1);
+    strncpy(cfg->pppoe_pwd, config_get_wan(unit, WAN_PPPOE_PWD), sizeof(cfg->pppoe_pwd) - 1);
+    strncpy(cfg->service, config_get_wan(unit, WAN_PPPOE_SERVICE), sizeof(cfg->service) - 1);
+    
+    strncpy(dns, config_get_wan(unit, WAN_DNS), sizeof(dns) - 1);
 
     if (dns[0] != '\0')
     {
@@ -180,23 +230,27 @@ int libgw_set_wan_cfg(char *wan, wan_cfg_t *cfg)
 {
     int cnt = 0;
     char dns[64] = {0};
+    int unit = WAN1_UNIT;
 
-    config_set(WAN1_PROTO, cfg->proto);
+    unit = get_wan_unit(wan);
+
+    config_set_wan(unit, WAN_PROTO, cfg->proto);
   
     if (strcmp(cfg->proto, "dhcp") == 0)
     {
+        /* 暂时没有参数 */
     }
     else if (strcmp(cfg->proto, "static") == 0)
     {
-        config_set(WAN1_IPADDR, cfg->ipaddr);   
-        config_set(WAN1_NETMASK, cfg->netmask);
-        config_set(WAN1_GATEWAY, cfg->gateway);
+        config_set_wan(unit, WAN_IPADDR, cfg->ipaddr);   
+        config_set_wan(unit, WAN_NETMASK, cfg->netmask);
+        config_set_wan(unit, WAN_GATEWAY, cfg->gateway);
     }
     else if (strcmp(cfg->proto, "pppoe") == 0)
     {
-        config_set(WAN1_PPPOE_USER, cfg->pppoe_user);   
-        config_set(WAN1_PPPOE_PWD, cfg->pppoe_pwd);
-        config_set(WAN1_PPPOE_SERVICE, cfg->service);
+        config_set_wan(unit, WAN_PPPOE_USER, cfg->pppoe_user);   
+        config_set_wan(unit, WAN_PPPOE_PWD, cfg->pppoe_pwd);
+        config_set_wan(unit, WAN_PPPOE_SERVICE, cfg->service);
     }
     else if (strcmp(cfg->proto, "pptp") == 0)
     {
@@ -209,9 +263,6 @@ int libgw_set_wan_cfg(char *wan, wan_cfg_t *cfg)
 
     if (strcmp(cfg->dns_mode, "manual") == 0)
     {
-        //log_debug("cfg->dns1 = %s\n", cfg->dns1);
-        //log_debug("cfg->dns2 = %s\n", cfg->dns2);
-
         if (cfg->dns1[0] != '\0')
         {
             cnt = snprintf(dns, sizeof(dns), "%s", cfg->dns1);
@@ -221,19 +272,84 @@ int libgw_set_wan_cfg(char *wan, wan_cfg_t *cfg)
         {
             snprintf(dns + cnt, sizeof(dns) - cnt, " %s", cfg->dns2);
         }
-
-        //log_debug("dns = %s\n", dns);
         
-        config_set(WAN1_DNS, dns);
+        config_set_wan(unit, WAN_DNS, dns);
     }
     else 
     {
-        config_unset(WAN1_DNS);
+        config_set_wan(unit, WAN_DNS, "");
     }
 
     config_commit("network");
 
     return 0;
+}
+
+int libgw_get_lan6_cfg(char *lan, lan6_cfg_t *cfg)
+{
+    int unit;
+    
+    unit = get_lan_unit(lan);
+
+#if 0
+    cfg->enabled = config_get_lan6_int(unit, "enabled");    
+
+    strncpy(cfg->lan, config_get_lan6(unit, "lan"), sizeof(cfg->lan) - 1);
+    strncpy(cfg->ip6type, config_get_lan6(unit, "ip6type"), sizeof(cfg->ip6type) - 1);
+    strncpy(cfg->ip6prefix, config_get_lan6(unit, "ip6prefix"), sizeof(cfg->ip6prefix) - 1);
+    
+    cfg->ip6assign = config_get_lan6_int(unit, "ip6assign");
+    cfg->leasetime = config_get_lan6_int(unit, "leasetime");
+#endif
+
+    return 0;
+}
+
+int libgw_get_wan6_cfg(char *wan, wan6_cfg_t *cfg)
+{
+    int unit;
+    
+    unit = get_wan_unit(wan);
+    
+    cfg->enabled = config_get_wan6_int(unit, "enabled");    
+
+    strncpy(cfg->wan, config_get_wan6(unit, "lan"), sizeof(cfg->wan) - 1);
+    strncpy(cfg->ip6type, config_get_wan6(unit, "ip6type"), sizeof(cfg->ip6type) - 1);
+    strncpy(cfg->ip6addr, config_get_wan6(unit, "ip6prefix"), sizeof(cfg->ip6addr) - 1);
+    cfg->ip6assign = config_get_wan6_int(unit, "ip6assign");
+    strncpy(cfg->ip6gw, config_get_wan6(unit, "ip6gw"), sizeof(cfg->ip6gw) - 1);
+    strncpy(cfg->ip6dns1, config_get_wan6(unit, "ip6dns1"), sizeof(cfg->ip6dns1) - 1);
+    strncpy(cfg->ip6dns2, config_get_wan6(unit, "ip6dns2"), sizeof(cfg->ip6dns2) - 1);
+    strncpy(cfg->ip6mode, config_get_wan6(unit, "ip6mode"), sizeof(cfg->ip6mode) - 1);
+    cfg->ip6delegate = config_get_wan6_int(unit, "ip6delegate");
+    strncpy(cfg->ip6dnsmode, config_get_wan6(unit, "ip6dnsmode"), sizeof(cfg->ip6dnsmode) - 1);
+    
+    return 0;
+}
+
+int libgw_get_dualwan_cfg(dualwan_cfg_t *cfg)
+{    
+    cfg->enabled = config_get_int(DUALWAN_ENABLED);
+    strncpy(cfg->primary, config_get(DUALWAN_PRIMARY), sizeof(cfg->primary) - 1);
+    strncpy(cfg->secondary, config_get(DUALWAN_SECONDARY), sizeof(cfg->secondary) - 1);
+    cfg->mode = config_get_int(DUALWAN_MODE);
+    cfg->weight1 = config_get_int(DUALWAN_WEIGHT1);
+    cfg->weight2 = config_get_int(DUALWAN_WEIGHT2);
+    
+    return 0;
+}
+
+int libgw_set_dualwan_cfg(char *wan, dualwan_cfg_t *cfg)
+{
+    config_set_int(DUALWAN_ENABLED, cfg->enabled);
+    config_set(DUALWAN_PRIMARY, cfg->primary);
+    config_set(DUALWAN_SECONDARY, cfg->secondary);
+    config_set_int(DUALWAN_MODE, cfg->mode);
+    config_set_int(DUALWAN_WEIGHT1, cfg->weight1);
+    config_set_int(DUALWAN_WEIGHT2, cfg->weight2);
+    config_commit("dualwan");
+
+    return 0;   
 }
 
 #define WEB_NTWK
@@ -376,9 +492,6 @@ int parse_wan_config(cJSON *params, wan_cfg_t *cfg)
         
         strncpy(cfg->dns1, strVal, sizeof(cfg->dns1) - 1);
 
-        //log_debug("cfg->dns1 = %s\n", cfg->dns1);
-        //log_debug("strVal = %s\n", strVal);
-
         strVal = cjson_get_string(params, "dns2");
         if (strVal)
         {
@@ -388,6 +501,56 @@ int parse_wan_config(cJSON *params, wan_cfg_t *cfg)
 
     return 0;
 }
+
+int parse_dualwan_config(cJSON *params, dualwan_cfg_t *cfg)
+{
+    int ret = 0;
+    char *strVal = NULL;
+    int intVal = 0;
+
+    ret = cjson_get_int(params, "enabled", &intVal);
+    if (ret < 0)
+    {
+        return -1;
+    }
+
+    strVal = cjson_get_string(params, "primary");
+    if (!strVal)
+    {
+        return -1;
+    }
+    
+    strncpy(cfg->primary, strVal, sizeof(cfg->primary) - 1);
+
+    strVal = cjson_get_string(params, "secondary");
+    if (!strVal)
+    {
+        return -1;
+    }
+
+    strncpy(cfg->secondary, strVal, sizeof(cfg->secondary) - 1);
+
+    ret = cjson_get_int(params, "mode", &cfg->mode);
+    if (ret < 0)
+    {
+        return -1;
+    }    
+
+    ret = cjson_get_int(params, "weight1", &cfg->weight1);
+    if (ret < 0)
+    {
+        return -1;
+    }
+
+    ret = cjson_get_int(params, "weight2", &cfg->weight2);
+    if (ret < 0)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
 
 #define API_NTWK
 
@@ -442,6 +605,50 @@ out:
     return ret;
 }
 
+int set_lan_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    int method = 0;
+    char *lan = NULL;
+    cJSON *params = NULL;
+    lan_cfg_t cfg;
+    
+    ret = param_init(req->post_data, &method, &params);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_PARAM; 
+        goto out;
+    }
+
+    lan = cjson_get_string(params, "lan");
+    if (!lan)
+    {
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+
+    memset(&cfg, 0x0, sizeof(lan_cfg_t));
+    
+    ret = parse_lan_config(params, &cfg);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+
+    libgw_set_lan_cfg("LAN1", &cfg);
+ 
+    fork_exec(1, "/etc/init.d/network restart;/etc/init.d/dnsmasq restart");
+   
+out:
+    param_free();
+
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+
+    return 0;
+}
+
 int get_dhcp_config(cgi_request_t *req, cgi_response_t *resp)
 {
     return 0;
@@ -468,14 +675,14 @@ int get_wan_config(cgi_request_t *req, cgi_response_t *resp)
     ret = param_init(req->post_data, &method, &params);
     if (ret < 0)
     {
-        cgi_errno = 101;
+        cgi_errno = CGI_ERR_PARAM; 
         goto out;
     }
 
     strVal = cjson_get_string(params, "wan");
     if (!strVal)
     {    
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
 
@@ -484,7 +691,7 @@ int get_wan_config(cgi_request_t *req, cgi_response_t *resp)
     ret = libgw_get_wan_cfg("WAN1", &cfg);
     if (ret < 0)
     {    
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
     
@@ -509,60 +716,6 @@ out:
     return ret;
 }
 
-int set_lan_config(cgi_request_t *req, cgi_response_t *resp)
-{
-    int ret = 0;
-    int method = 0;
-    char *lan = NULL;
-    cJSON *params = NULL;
-    lan_cfg_t cfg;
-    
-    ret = param_init(req->post_data, &method, &params);
-    if (ret < 0)
-    {
-        cgi_errno = 101; 
-        goto out;
-    }
-
-    lan = cjson_get_string(params, "lan");
-    if (!lan)
-    {
-        cgi_errno = 102;
-        goto out;
-    }
-
-    memset(&cfg, 0x0, sizeof(lan_cfg_t));
-    
-    ret = parse_lan_config(params, &cfg);
-    if (ret < 0)
-    {
-        cgi_errno = 102;
-        goto out;
-    }
-
-    libgw_set_lan_cfg("LAN1", &cfg);
- 
-    fork_exec(1, "/etc/init.d/network restart;/etc/init.d/dnsmasq restart");
-   
-out:
-    param_free();
-
-    webs_json_header(req->out);
-    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
-
-    return 0;
-}
-
-int add_dhcp_reserv(cgi_request_t *req, cgi_response_t *resp)
-{
-    return 0;
-}
-
-int delete_dhcp_reserv(cgi_request_t *req, cgi_response_t *resp)
-{
-    return 0;
-}
-
 int set_wan_config(cgi_request_t *req, cgi_response_t *resp)
 {
     int ret = 0;
@@ -574,14 +727,14 @@ int set_wan_config(cgi_request_t *req, cgi_response_t *resp)
     ret = param_init(req->post_data, &method, &params);
     if (ret < 0)
     {
-        cgi_errno = 101; 
+        cgi_errno = CGI_ERR_PARAM; 
         goto out;
     }
 
     wan = cjson_get_string(params, "wan");
     if (!wan)
     {
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
 
@@ -590,20 +743,242 @@ int set_wan_config(cgi_request_t *req, cgi_response_t *resp)
     ret = parse_wan_config(params, &cfg);
     if (ret < 0)
     {
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
 
-    libgw_set_wan_cfg("WAN1", &cfg);
+    libgw_set_wan_cfg(wan, &cfg);
 
     fork_exec(1, "/etc/init.d/network restart");
-    
+
 out:
     param_free();
 
     webs_json_header(req->out);
     webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
 
+    return 0;
+}
+
+int get_lan6_status(cgi_request_t *req, cgi_response_t *resp)
+{
+    return 0;
+}
+
+int get_lan6_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    int method = 0;
+    cJSON *params = NULL;
+    char *strVal = NULL;
+    lan6_cfg_t cfg;
+    
+    ret = param_init(req->post_data, &method, &params);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_PARAM; 
+        goto out;
+    }
+
+    strVal = cjson_get_string(params, "lan");
+    if (!strVal)
+    {    
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+
+    /* 获取所有Interface LAN IPv6协议接口配置 */
+    if (strVal == '\0')
+    {
+ 
+    }
+    else
+    {
+        memset(&cfg, 0x0, sizeof(lan6_cfg_t));
+
+        ret = libgw_get_lan6_cfg(strVal, &cfg);
+        if (ret < 0)
+        {    
+            cgi_errno = CGI_ERR_CFG_PARAM;
+            goto out;
+        }
+    }
+    
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"interface\":[{\"lan\":\"%s\",\"ip6type\":\"%s\",\"ip6prefix\":\"%s\","
+            "\"ip6assign\":%d,\"leasetime\":%d}]", cfg.lan, cfg.ip6type, cfg.ip6prefix, 
+            cfg.ip6assign, cfg.leasetime);
+    webs_write(req->out, "}}");
+out:
+    
+    param_free();
+
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    }
+    
+    return ret;
+}
+
+int set_lan6_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    return 0;
+}
+
+int get_wan6_status(cgi_request_t *req, cgi_response_t *resp)
+{
+    return 0;
+}
+
+int get_wan6_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    int method = 0;
+    cJSON *params = NULL;
+    char *strVal = NULL;
+    wan6_cfg_t cfg;
+    
+    ret = param_init(req->post_data, &method, &params);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_PARAM; 
+        goto out;
+    }
+
+    strVal = cjson_get_string(params, "wan");
+    if (!strVal)
+    {    
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+
+    /* 获取所有Interface WAN IPv6协议接口配置 */
+    if (strVal == '\0')
+    {
+            
+    }
+    else
+    {
+        memset(&cfg, 0x0, sizeof(wan6_cfg_t));
+
+        ret = libgw_get_wan6_cfg(strVal, &cfg);
+        if (ret < 0)
+        {    
+            cgi_errno = CGI_ERR_CFG_PARAM;
+            goto out;
+        }
+    }
+    
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"interface\":[{\"wan\":\"%s\",\"ip6type\":\"%s\",\"ip6prefix\":\"%s\","
+            "\"ip6assign\":%d,\"leasetime\":%d}]", cfg.wan, cfg.ip6type, cfg.ip6addr, 
+            cfg.ip6assign, cfg.ip6gw);
+    webs_write(req->out, "}}");
+out:
+    
+    param_free();
+
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    }
+    
+    return ret;
+}
+
+int set_wan6_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    return 0;
+}
+
+int get_dualwan_status(cgi_request_t *req, cgi_response_t *resp)
+{
+    return 0;
+}
+
+int get_dualwan_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    dualwan_cfg_t cfg;
+
+    memset(&cfg, 0x0, sizeof(dualwan_cfg_t));
+
+    ret = libgw_get_dualwan_cfg(&cfg);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_CFG_FILE;
+        goto out;
+    }
+    
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"enabled\":%d,\"primary\":\"%s\",\"secondary\":\"%s\","
+            "\"mode\":%d,\"weight1\":%d,\"weight2\":%d", cfg.enabled, cfg.primary,
+            cfg.secondary, cfg.mode, cfg.weight1, cfg.weight2);
+    webs_write(req->out, "}}");
+    
+out:
+
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    }
+    
+    return 0;
+}
+
+int set_dualwan_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    int method = 0;
+    char *wan = NULL;
+    cJSON *params = NULL;
+    dualwan_cfg_t cfg;
+
+    ret = param_init(req->post_data, &method, &params);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_PARAM; 
+        goto out;
+    }
+
+    wan = cjson_get_string(params, "wan");
+    if (!wan)
+    {
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+
+    memset(&cfg, 0x0, sizeof(dualwan_cfg_t));
+
+    ret = parse_dualwan_config(params, &cfg);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+
+    libgw_set_dualwan_cfg(wan, &cfg);
+
+    fork_exec(1, "/etc/init.d/dualwan restart");
+
+out:
+    param_free();
+
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    
+    return 0;
+}
+
+int dualwan_check_config(cgi_request_t *req, cgi_response_t *resp)
+{
     return 0;
 }
 
@@ -615,10 +990,274 @@ int get_interface_lan(cgi_request_t *req, cgi_response_t *resp)
     return 0;
 }
 
-/* brief info */
+/* 获取WAN接口数 */
 int get_interface_wan(cgi_request_t *req, cgi_response_t *resp)
 {
+    int dualwan = 0;
+
+    /* 是否开启了双WAN口 */
+    dualwan = config_get_int(DUALWAN_ENABLED);
+    
     webs_json_header(req->out);
-    webs_write(req->out, "{\"code\":0,\"data\":{\"num\":1,\"interface\":[{\"wan\":\"WAN1\"}]}}");
+    
+    webs_write(req->out, "{\"code\":0,\"data\":{");
+    webs_write(req->out, "\"num\":%d,\"interface\":[", (dualwan == 1) ? 2 : 1);
+    webs_write(req->out, "{\"wan\":\"WAN1\"}");
+    
+    if (dualwan)
+    {
+        webs_write(req->out, ",{\"wan\":\"WAN2\"}");
+    }
+    
+    webs_write(req->out, "]}}");
+    
+    return 0;
+}
+
+#define ROUTE_API
+
+int route_num = 0;
+struct list_head routeDb;
+
+static void routeDb_add(int i, char *cfgname, route_cfg_t *route)
+{
+    routeDb_t *item;
+
+    item = (void *)malloc(sizeof(routeDb_t));
+    if (!item)
+    {
+        return;
+    }
+
+    memset(item, 0x0, sizeof(routeDb_t));
+    
+    item->id = i + 1;
+    strncpy(item->cfgname, cfgname, sizeof(item->cfgname) - 1);
+    memcpy(&item->route, route, sizeof(route_cfg_t));
+
+    INIT_LIST_HEAD(&item->list);
+    list_add_tail(&item->list, &routeDb);
+}
+
+static routeDb_t *routeDb_find(int id)
+{
+    routeDb_t *item = NULL;
+
+    list_for_each_entry(item, &routeDb, list)
+    {
+        if (item->id == id)
+        {
+            return item;
+        }
+    }
+
+    return NULL;
+}
+
+static void routeDb_del(routeDb_t *item)
+{
+    list_del(&item->list);
+    free(item);
+}
+
+int route_config_init()
+{
+    int i = 0;
+    route_cfg_t route;
+    
+    struct uci_context *ctx;
+    struct uci_package *pkg = NULL;
+    struct uci_element *e;
+
+    INIT_LIST_HEAD(&routeDb);
+
+    ctx = uci_alloc_context();
+    if (!ctx)
+    {
+        return -1;
+    }
+
+    uci_load(ctx, "network", &pkg);
+    if (!pkg) 
+    {
+        goto out;
+    }
+    
+    uci_foreach_element(&pkg->sections, e)
+    {  
+        struct uci_element *n;
+        struct uci_section *s = uci_to_section(e);
+
+        if (!strcmp(s->type, "route"))
+        {
+            memset(&route, 0x0, sizeof(route_cfg_t));
+            
+            uci_foreach_element(&s->options, n) 
+            {
+                struct uci_option *o = uci_to_option(n);
+                
+                if (o->type != UCI_TYPE_STRING)
+                {
+                    continue;
+                }
+                if (!strcmp(o->e.name, "name"))
+                {
+                    strncpy(route.name, o->v.string, sizeof(route.name) - 1);
+                }
+                else if (!strcmp(o->e.name, "interface"))
+                {
+                    strncpy(route.interface, o->v.string, sizeof(route.interface) - 1);
+                }
+                else if (!strcmp(o->e.name, "target"))
+                {
+                    strncpy(route.target, o->v.string, sizeof(route.target) - 1);
+                }
+                else if (!strcmp(o->e.name, "netmask"))
+                {
+                    strncpy(route.netmask, o->v.string, sizeof(route.netmask) - 1);
+                }
+                else if (!strcmp(o->e.name, "gateway"))
+                {
+                    strncpy(route.gateway, o->v.string, sizeof(route.gateway) - 1);
+                }
+                else if (!strcmp(o->e.name, "metric"))
+                {
+                    route.metric = atoi(o->v.string);
+                }
+            }
+            
+            routeDb_add(i, s->e.name, &route);
+            
+            i ++;
+        }
+    } 
+
+    route_num = i;
+
+    uci_unload(ctx, pkg);
+out:
+    uci_free_context(ctx);
+
+    return 0;
+}
+
+static void route_config_save()
+{
+    return 0;
+}
+
+static void route_config_free()
+{
+    routeDb_t *item, *tmp;
+
+    list_for_each_entry_safe(item, tmp, &routeDb, list)
+    {
+        routeDb_del(item);
+    }
+}
+
+int static_route_list(cgi_request_t *req, cgi_response_t *resp)
+{
+    int i = 0;
+    int ret = 0;
+    route_cfg_t *route;
+    routeDb_t *item = NULL;
+    
+    ret = route_config_init();
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_CFG_FILE;
+        goto out;
+    }
+
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"num\":%d,", route_num);
+    webs_write(req->out, "\"rules\":[", route_num);
+
+    list_for_each_entry(item, &routeDb, list) {
+        route = &item->route;
+        webs_write(req->out, "%s{\"id\":%d,\"name\":\"%s\",\"interface\":\"%s\",\"target\":\"%s\","
+            "\"netmask\":\"%s\",\"gateway\":\"%s\",\"metric\":%d}", (i > 0) ? "," : "", item->id, route->name, route->interface, 
+            route->target, route->netmask, route->gateway, route->metric);
+        i ++;
+    }
+
+    webs_write(req->out, "]}}");
+    
+out:
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);    
+    }
+    
+    route_config_free();
+    
+    return 0;
+}
+
+int static_route_add(cJSON *params)
+{
+    route_cfg_t route;
+    
+    memset(&route, 0x0, sizeof(route_cfg_t));
+    
+    return 0;
+}
+
+int static_route_edit(cJSON *params)
+{
+    return 0;
+}
+
+int static_route_del(cJSON *params)
+{
+    return 0;
+}
+
+int static_route_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    int method = 0;
+    cJSON *params = NULL;
+
+    ret = param_init(req->post_data, &method, &params);
+    if (ret < 0)
+    {   
+        cgi_errno = CGI_ERR_PARAM;
+        goto out;
+    }
+
+    ret = route_config_init();
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_CFG_FILE;
+        goto out;
+    }
+    
+    switch(method)
+    {
+        case CGI_ADD:
+            ret = static_route_add(params);
+            break;
+        case CGI_SET:
+            ret = static_route_edit(params);
+            break;
+        case CGI_DEL:
+            ret = static_route_del(params);
+            break;
+        default:
+            cgi_errno = CGI_ERR_NOT_FOUND;
+            break;
+    }
+
+out:
+    param_free();
+    route_config_free();
+
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    
     return 0;
 }

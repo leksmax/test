@@ -3,10 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/sysinfo.h>
-#include <uci.h>
 
-#include "utils.h"
-#include "servlet.h"
+#include "webcgi.h"
 #include "auth.h"
 
 struct list_head userDb;
@@ -165,7 +163,7 @@ int handle_login(cgi_request_t *req, cgi_response_t *resp)
     ret = auth_config_init();
     if (ret < 0)
     {
-        cgi_errno = CFI_ERR_CFG_FILE;
+        cgi_errno = CGI_ERR_CFG_FILE;
         goto out;
     }
 

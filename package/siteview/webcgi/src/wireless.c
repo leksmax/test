@@ -536,20 +536,20 @@ int get_regdmn_list(cgi_request_t *req, cgi_response_t *resp)
     ret = param_init(req->post_data, &method, &params);
     if (ret < 0)
     {
-        cgi_errno = 101;
+        cgi_errno = CGI_ERR_PARAM;
         goto out;
     }
 
     ret = cjson_get_int(params, "region", &region_id);
     if (ret < 0)
     {
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
 
     if (region_id < 0 || region_id >= REGDMN_MAX)
     {
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
 
@@ -585,7 +585,7 @@ int get_wifi_config(cgi_request_t *req, cgi_response_t *resp)
     ret = libgw_get_wl_region_id(&region);
     if (ret < 0)
     {
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_PARAM;
         goto out;
     }
         
@@ -593,7 +593,7 @@ int get_wifi_config(cgi_request_t *req, cgi_response_t *resp)
     ret += libgw_get_wifi_cfg(WL5G_IDX, &wl5g_cfg);
     if (ret < 0)
     {    
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
 
@@ -635,7 +635,7 @@ int set_wifi_config(cgi_request_t *req, cgi_response_t *resp)
     ret = param_init(req->post_data, &method, &params);
     if (ret < 0)
     {
-        cgi_errno = 101;
+        cgi_errno = CGI_ERR_PARAM;
         goto out;
     }
 
@@ -643,7 +643,7 @@ int set_wifi_config(cgi_request_t *req, cgi_response_t *resp)
     ret += parse_wifi_config(WL5G_IDX, params, &wl5g_cfg);
     if (ret < 0)
     {
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
 

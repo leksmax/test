@@ -54,4 +54,5 @@ int get_traffic_meter_config(cgi_request_t *req, cgi_response_t *resp);
 int get_traffic_meter_list(cgi_request_t *req, cgi_response_t *resp);
 int set_traffic_meter_config(cgi_request_t *req, cgi_response_t *resp);
 int restart_counter(cgi_request_t *req, cgi_response_t *resp);
+
 #endif //__TRAFFIC_METER_H 
