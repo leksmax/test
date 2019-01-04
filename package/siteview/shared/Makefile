@@ -28,7 +28,7 @@ endef
 
 define Package/shared/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/libbshared.so $(1)/usr/lib
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/libshared.so $(1)/usr/lib
 endef
 
 $(eval $(call BuildPackage,shared))
