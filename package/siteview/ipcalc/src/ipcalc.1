@@ -1,0 +1,161 @@
+.TH IPCALC 1 "Oct 1 2018" "Red Hat, Inc." \" -*- nroff -*-
+.SH NAME
+ipcalc \- perform simple operations on IP addresses and networks
+.SH SYNOPSIS
+.B ipcalc
+[\fIOPTION\fR]... <\fBIP address\fR>[\fI/prefix\fR] [\fInetmask\fR]
+
+.SH DESCRIPTION
+\fBipcalc\fR provides a simple way to calculate IP information for a host
+or network. Depending on the options specified, it may be used to provide
+IP network information in human readable format, in a format suitable for
+parsing in scripts, generate random private addresses, resolve an IP address,
+or check the validity of an address.
+
+By default or when the \fB\-\-info\fR or \fB\-\-all\-info\fR parameters
+are specified the information provided is free form and human readable. Otherwise,
+when specific options are given (e.g., \fB\-\-prefix\fR) the output is
+in the VAR=VALUE format.
+
+The various options specify what information \fBipcalc\fR should display
+on standard output. Multiple options may be specified.  It is required
+to specify an IP address; several operations require
+a netmask or a CIDR prefix as well.
+
+.SH OPTIONS
+.TP
+.TP
+\fB\-c\fR, \fB\-\-check\fR
+Validate the IP address under the specified family. 
+
+.TP
+\fB\-i\fR, \fB\-\-info\fR 
+Display generic information on the provided network in human readable format.
+This is the default option if no other options are provided.
+
+.TP
+\fB\-\-all\-info\fR 
+Display verbose information on the provided network and addresses in human
+readable format. That includes GeoIP information.
+
+.TP
+\fB\-S\fR, \fB\-\-split\fR
+Split the provided network using the specified prefix or netmask. That is,
+split up the network into smaller chunks of a specified prefix. When
+combined with no-decorate mode (\fB\-\-no\-decorate\fR), the split networks
+will be printed in raw form.
+
+.TP
+\fB\-r\fR, \fB\-\-random-private\fR
+Generate a random private address using the supplied prefix or mask. By default
+it displays output in human readable format, but may be combined with 
+other options (e.g., \fB\-\-network\fR) to display specific information in
+VAR=VALUE format.
+
+.TP
+\fB\-h\fR, \fB\-\-hostname\fR
+Display the hostname for the given IP address.
+The variable exposed is HOSTNAME.
+
+.TP
+\fB\-h\fR, \fB\-\-lookup-host\fR
+Display the IP address for the given hostname.
+The variable exposed is ADDRESS.
+
+.TP
+\fB\-4\fR, \fB\-\-ipv4\fR
+Explicitly specify the IPv4 address family.
+
+.TP
+\fB\-6\fR, \fB\-\-ipv6\fR
+Explicitly specify the IPv6 address family.
+
+.TP
+\fB\-b\fR, \fB\-\-broadcast\fR
+Display the broadcast address for the given IP address and netmask.
+The variable exposed is BROADCAST (if available).
+
+.TP
+\fB\-g\fR, \fB\-\-geoinfo\fR
+Display geographic information for the given IP address. This option
+requires libGeoIP/libmaxminddb to be available. The variables exposed are
+COUNTRYCODE, COUNTRY, CITY and COORDINATES (when available).
+
+.TP
+\fB\-m\fR, \fB\-\-netmask\fR
+Calculate the netmask for the given IP address. If no mask or prefix
+is provided, in IPv6 a 128-bit mask is assumed, while in IPv4 it assumes
+that the IP address is in a complete class A, B, or C network. Note, 
+however, that many networks no longer use the default netmasks in IPv4.
+The variable exposed is NETMASK.
+
+.TP
+\fB\-p\fR, \fB\-\-prefix\fR
+Show the prefix for the given mask/IP address.
+The variable exposed is PREFIX.
+
+.TP
+\fB\   \fR \fB\-\-class\-prefix\fR
+Assign the netmask of the provided IPv4 address based on the address
+class. This was the default in previous versions of this software.
+
+.TP
+\fB\-n\fR, \fB\-\-network\fR 
+Display the network address for the given IP address and netmask.
+The variable exposed is NETWORK.
+
+.TP
+\fB\-n\fR, \fB\-\-reverse-dns\fR 
+Display the reverse DNS for the given IP address and netmask.
+The variable exposed is REVERSEDNS.
+
+.TP
+\fB\   \fR \fB\-\-minaddr\fR 
+Display the minimum host address in the provided network.
+The variable exposed is MINADDR.
+
+.TP
+\fB\   \fR \fB\-\-maxaddr\fR 
+Display the maximum host address in the provided network.
+The variable exposed is MAXADDR.
+
+.TP
+\fB\   \fR \fB\-\-addresses\fR 
+Display the number of host addresses in the provided network.
+The variable exposed is ADDRESSES.
+
+.TP
+\fB\   \fR \fB\-\-addrspace\fR 
+Display address space allocation information for the provided network.
+The variable exposed is ADDRSPACE.
+
+.TP
+\fB\   \fR \fB\-\-no\-decorate\fR
+Print only the requested information. That when combined with
+split networks option, will only print the networks without any
+additions for readability.
+
+.TP
+\fB\-s\fR, \fB\-\-silent\fR 
+Don't ever display error messages.
+
+.SH AUTHORS
+.nf
+Nikos Mavrogiannopoulos <nmav@redhat.com>
+.nf
+Erik Troan <ewt@redhat.com>
+.nf
+Preston Brown <pbrown@redhat.com>
+.nf
+David Cantrell <dcantrell@redhat.com>
+
+
+.fi
+.SH "REPORTING BUGS"
+Report bugs at https://gitlab.com/ipcalc/ipcalc/issues
+.SH COPYRIGHT
+Copyright \(co 1997-2018 Red Hat, Inc.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.
