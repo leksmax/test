@@ -28,7 +28,7 @@ define Package/traffic-meter
 	SETCTION := net
 	CATEGORY := Network
 	TITLE	 := traffic meter of all
-	DEPENDS  := +iptables-mod-maccount
+	DEPENDS  := +iptables-mod-maccount +shared
 endef
 
 define Build/Prepare
@@ -56,11 +56,11 @@ define Build/Compile/maccount-lib
 endef	
 
 define Build/Compile/traffic-meter
-    $(MAKE) -C $(PKG_BUILD_DIR)/app \
-        $(TARGET_CONFIGURE_OPTS) \
-        CFLAGS="$(TARGET_CFLAGS)" \
-        LDFLAGS="$(TARGET_LDFLAGS)" \
-		IFLAGS="$(TARGET_CPPFLAGS) -I$(PKG_BUILD_DIR)/header" 
+    ( CFLAGS="$(TARGET_CFLAGS)" \
+	  LDFLAGS="$(TARGET_LDFLAGS)" \
+	  IFLAGS="$(TARGET_CPPFLAGS) -I$(PKG_BUILD_DIR)/header" \
+      $(TARGET_CONFIGURE_OPTS) \
+      $(MAKE) -C $(PKG_BUILD_DIR)/app )
 endef	
 
 define Build/Compile

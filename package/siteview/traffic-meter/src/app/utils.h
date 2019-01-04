@@ -4,6 +4,8 @@
 #include <account_sockopt.h>
 #include <time.h>
 
+extern int debug_flag;
+
 #define TRAFFIC_METER_PRINTF(format, args...) \
 {\
 	if(debug_flag) \
@@ -14,9 +16,16 @@
 #define IPT_ACCOUNT_TRAFFIC_NAME		("/proc/net/account/lan")
 #define TRAFFIC_METER_PID_FILE			("/var/run/traffic_meter.pid")
 #define TRAFFIC_METER_DATA_FILE			("/tmp/traffic_every_month_data")
-#define SAVE_TO_FLASH_OF_FLIE			("/tmp/traffic_flash_data")
+
+#define DEV_BLOCK_NAME					("traffic_meter")
+#define TAG_DATA_HEADER					(0xeaea)
+
 #define TRAFFIC_METER_COUNT_INTERVAL	30 //s
 #define UPDATA_TIME_EVERYDAY			(0 * 3600 + 1 * 60 + 0) //00:01:00
+
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
 
 struct ipt_account_context
 {
@@ -36,12 +45,12 @@ struct traffic_stat{
 	unsigned long long u_p;	// upload packte
 	unsigned long long d_p;	// download packte
 	unsigned long long t_p;	// total packte
-};
+}__attribute__((packed));
 
 struct traffic_stat_c{
 	int count;
 	struct traffic_stat st;
-};
+}__attribute__((packed));
 
 struct traffic_stat_t{
 	struct traffic_stat today;
@@ -49,9 +58,24 @@ struct traffic_stat_t{
 	struct traffic_stat_c week;
 	struct traffic_stat_c month;
 	struct traffic_stat_c last_month;
+}__attribute__((packed));
+
+struct traffic_param_t{
+	int limit_dire;
+	int limit_size;
+	int zero_sec;
+	char table_name[IPT_ACCOUNT_NAME_LEN + 1];
 };
 
-enum{HANDLE_CLOSE, HANDLE_OPEN};
+struct data_info_t{
+	uint16_t header;
+	uint16_t datalen;
+	struct traffic_stat_t data;
+	uint8_t cksum;
+}__attribute__((packed));
+
+enum{NOT_LIMIT, LIMIT_UPLOAD, LIMIT_DOWNLOAD, LIMIT_ALL};
+enum{HANDLE_CLOSE, HANDLE_OPEN, HANDLE_CLEAR};
 
 /* 初始化sockopt结构体 */
 extern int init_sockopt(struct ipt_account_context *ctx);

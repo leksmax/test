@@ -1,7 +1,10 @@
 #!/bin/sh /etc/rc.common
 
-START=21
+START=55
 USE_PROCD=1
+
+TRAFFIC_TULE_NAME="traffic_meter"
+IPCALC="/usr/sbin/ipcalc"
 
 table_name="lan"
 enabled="" 
@@ -34,34 +37,59 @@ get_traffic_config(){
 	config_get disconnect_network action disconnect_network
 }
 
-#start_service(){
-#	local ipaddr netmask
-#	config_load network
-#	config_get ipaddr lan ipaddr
-#	config_get netmask lan netmask
+net_mask_to_subnet()
+{
+	eval "$(${IPCALC} -n -p ${1}/${2})"
+	echo "${NETWORK}/${PREFIX}"
+}
+
+add_iptables_rule(){
+	iptables -N ${TRAFFIC_TULE_NAME}
+	iptables -I FORWARD -j ${TRAFFIC_TULE_NAME}
 	
-#	iptables -I FORWARD -m account --aaddr ${ipaddr}/${netmask} --aname ${table_name} -j reject
-#}
+	local ipaddr netmask
+	config_load network
+	config_get ipaddr lan ipaddr
+	config_get netmask lan netmask
+	
+	subnet=`net_mask_to_subnet ${ipaddr} ${netmask}`
+	
+	iptables -A ${TRAFFIC_TULE_NAME} -m account --aaddr ${subnet} --aname ${table_name} -j ACCEPT
+	#echo "iptables -A ${TRAFFIC_TULE_NAME} -m account --aaddr ${subnet} --aname ${table_name} -j ACCEPT"
+}
+
+del_iptables_rule(){
+	iptables -F ${TRAFFIC_TULE_NAME}
+	iptables -D FORWARD -j ${TRAFFIC_TULE_NAME}
+	iptables -X ${TRAFFIC_TULE_NAME}
+}
 
 start_traffic_meter(){
 	local zero_sec=0;
-
+	local limit_size=0;
+	local paramter="";
+	
 	get_traffic_config
 	
 	if [ "x${enabled}" != "x1" ]; then
 		exit 0;
 	fi
 	
+	add_iptables_rule
+
 	if [ "x${type}" == "x0" ]; then
 		/usr/sbin/traffic_meter set limit_not ${table_name} 0
 	else
-		local limit_size=$(((${monthly_size} - ${show_limit_size}) * 1024))
-		echo "limit_size = ${limit_size}"
-		if [ "x${type}" == "x1" ]; then		
+		limit_size=$(((${monthly_size} - ${show_limit_size}) * 1024 * 1024))
+		#echo "limit_size = ${limit_size}"
+		if [ "x${type}" == "x1" ]; then
+			paramter="-d upload -s $((${monthly_size} - ${show_limit_size}))"
 			/usr/sbin/traffic_meter set limit_src ${table_name} ${limit_size}
-		elif [ "x${type}" == "x2" ]; then
+		elif [ "x${type}" == "x2" ]; then			
+			paramter="-d download -s $((${monthly_size} - ${show_limit_size}))"
 			/usr/sbin/traffic_meter set limit_dst ${table_name} ${limit_size}
 		elif [ "x${type}" == "x3" ]; then
+			paramter="-d all -s $((${monthly_size} - ${show_limit_size}))"
 			/usr/sbin/traffic_meter set limit_all ${table_name} ${limit_size}
 		else		
 			/usr/sbin/traffic_meter set limit_not ${table_name} 0
@@ -74,12 +102,21 @@ start_traffic_meter(){
         local hour=`echo ${time} | cut -d \:  -f 1`
         local min=`echo ${time} | cut -d \:  -f 2`
 
-        zero_sec=$((${day} * 24 * 3600 + ${hour} * 3600 + ${min} * 60))
-		/usr/sbin/traffic_meter set zero_time ${table_name} ${zero_sec}
+        zero_sec=$((${day} * 24 * 3600 + ${hour} * 3600 + ${min} * 60))		
+		paramter=${paramter}" -t ${zero_sec}"
+		#/usr/sbin/traffic_meter set zero_time ${table_name} ${zero_sec}
+	fi
+	
+	if [ -e "/var/run/traffic_meter.pid" ] ; then
+		rm /var/run/traffic_meter.pid
 	fi
 	
 	echo "start traffic meter"
-	/usr/sbin/traffic_meter -a ${table_name}
+	/usr/sbin/traffic_meter -a ${table_name} ${paramter}
+}
+
+boot(){
+	start_traffic_meter
 }
 
 stop_traffic_meter(){	
@@ -88,6 +125,7 @@ stop_traffic_meter(){
 		echo "stop traffic meter"
 		killall traffic_meter
 	fi
+	del_iptables_rule
 }
 
 restart(){

@@ -34,11 +34,18 @@ close_action(){
 	fi
 }
 
+clear_all_data(){
+	/usr/sbin/traffic_meter clearall
+}
+
 case "${1}" in
 	start)
 		open_action
 	;;
 	stop)
 		close_action
+	;;
+	clearall)
+		clear_all_data
 	;;
 esac

@@ -47,32 +47,117 @@ void save_traffic_meter_config(struct traffic_conf conf)
 	}
 }
 
-void get_traffic_count_data(struct traffic_time_stat *data)
+void get_residual_flow(unsigned long long total, char *residual_flow)
 {
-	data->today.connect_time = 1111111;
-	strncpy(data->today.upload, "2.56", sizeof(data->today.upload) - 1);
-	strncpy(data->today.download, "22", sizeof(data->today.download) - 1);
-	strncpy(data->today.total, "24.56", sizeof(data->today.total) - 1);
+	int limit_type = NOT_LIMIT, limit_size = 0;
 
-	data->yesterday.connect_time = 2222222;
-	strncpy(data->yesterday.upload, "3.56", sizeof(data->yesterday.upload) - 1);
-	strncpy(data->yesterday.download, "33", sizeof(data->yesterday.download) - 1);
-	strncpy(data->yesterday.total, "36.56", sizeof(data->yesterday.total) - 1);
+	limit_type = config_get_int(TRAFFIC_LIMIT_TYPE);
+	if(limit_type != NOT_LIMIT)
+	{
+		unsigned long long size = 0, tmp = 0; 
+		limit_size = config_get_int(TRAFFIC_LIMIT_SIZE);
 
-	data->this_week.connect_time = 3333333;
-	strncpy(data->this_week.upload, "4.56/3", sizeof(data->this_week.upload) - 1);
-	strncpy(data->this_week.download, "44/3", sizeof(data->this_week.download) - 1);
-	strncpy(data->this_week.total, "48.56/3", sizeof(data->this_week.total) - 1);
+		size = limit_size * 1024 * 1024LL;
 
-	data->this_month.connect_time = 4444444;
-	strncpy(data->this_month.upload, "5.56/4", sizeof(data->this_month.upload) - 1);
-	strncpy(data->this_month.download, "55/4", sizeof(data->this_month.download) - 1);
-	strncpy(data->this_month.total, "60.56/4", sizeof(data->this_month.total) - 1);
+		if(size > total)
+		{
+			tmp = size - total;
+			cgi_debug("tmp = %lld, limit_size = %d sizz = %lld, total = %lld, \n", tmp,limit_size, size, total);
+			if(tmp >= 1024 && tmp < 1024 * 1024LL)
+			{
+				sprintf(residual_flow, "0G 0M %lldK bytes", tmp / 1024);
+			}
+			else if(tmp >= (1024 * 1024LL) && tmp < (1024 * 1024 * 1024LL))
+			{
+				sprintf(residual_flow, "0G %lldM %lldK bytes", tmp / (1024 * 1024LL), tmp % 1024);
+			}
+			else if(tmp >= (1024 * 1024 * 1024LL))
+			{
+				sprintf(residual_flow, "%lldG %lldM %lldK bytes", tmp / (1024 * 1024 * 1024LL), 
+					(tmp % (1024 * 1024 * 1024LL)) / (1024 * 1024LL), ((tmp % (1024 * 1024 * 1024LL)) % (1024 * 1024LL)) / 1024 );
+			}
+			else 
+			{
+				sprintf(residual_flow, "%lld bytes", tmp);	
+			}
+		}
+		else
+		{
+			strcpy(residual_flow, "0 bytes");	
+		}
+	}
+	else
+	{
+		strcpy(residual_flow, "Not Limit");	
+	}
+	return ;
+}
 
-	data->last_month.connect_time = 5555555;
-	strncpy(data->last_month.upload, "6.56/5", sizeof(data->last_month.upload) - 1);
-	strncpy(data->last_month.download, "66/5", sizeof(data->last_month.download) - 1);
-	strncpy(data->last_month.total, "72.56/5", sizeof(data->last_month.total) - 1);
+void get_traffic_count_data(struct traffic_time_stat *data, char *residual_flow)
+{
+	FILE *fp = NULL;
+	unsigned long long upload, download, total;
+	int days = 0, week = 0;
+	char strline[1024] = {0}, str_time[10] = {0};
+	
+	fp = fopen(TRAFFIC_METER_DATA_FILE, "r");
+
+	if(fp != NULL)
+	{
+		while(fgets(strline, sizeof(strline), fp))
+		{
+			//printf("strline = %s\n", strline);
+			if(strstr(strline, "start timespec:") != NULL)
+			{
+				sscanf(strline, "start timespec: %ld", &data->cur_timespec);
+			}
+			if(strstr(strline, "today") != NULL)
+			{
+				sscanf(strline, "today: %llu %llu %llu %s", &upload, &download, &total, data->today.time_s);
+				snprintf(data->today.upload, sizeof(data->today.upload), "%.2f", upload / BYTES_UNIT);
+				snprintf(data->today.download, sizeof(data->today.download), "%.2f", download / BYTES_UNIT);
+				snprintf(data->today.total, sizeof(data->today.total), "%.2f", total / BYTES_UNIT);
+			}
+
+			if(strstr(strline, "yesterday") != NULL)
+			{
+				sscanf(strline, "yesterday: %llu %llu %llu %s", &upload, &download, &total, data->yesterday.time_s);
+				snprintf(data->yesterday.upload, sizeof(data->yesterday.upload), "%.2f", upload / BYTES_UNIT);
+				snprintf(data->yesterday.download, sizeof(data->yesterday.download), "%.2f", download / BYTES_UNIT);
+				snprintf(data->yesterday.total, sizeof(data->yesterday.total), "%.2f", total / BYTES_UNIT);
+			}
+
+			if(strstr(strline, "week") != NULL)
+			{
+				sscanf(strline, "week: %llu %llu %llu %d %d %s", &upload, &download, &total, &days, &week, str_time);
+				snprintf(data->this_week.upload, sizeof(data->this_week.upload), "%.2f/%.2f", upload / BYTES_UNIT, upload / (BYTES_UNIT * days));
+				snprintf(data->this_week.download, sizeof(data->this_week.download), "%.2f/%.2f", download / BYTES_UNIT, download / (BYTES_UNIT * days));
+				snprintf(data->this_week.total, sizeof(data->this_week.total), "%.2f/%.2f", total / BYTES_UNIT, total / (BYTES_UNIT * days));
+				snprintf(data->this_week.time_s, sizeof(data->this_week.time_s), "week:%d %s", week, str_time);
+			}
+
+			if(strstr(strline, "month") != NULL)
+			{
+				sscanf(strline, "month: %llu %llu %llu %d %d %s", &upload, &download, &total, &days, &week, str_time);
+				snprintf(data->this_month.upload, sizeof(data->this_month.upload), "%.2f/%.2f", upload / BYTES_UNIT, upload / (BYTES_UNIT * days));
+				snprintf(data->this_month.download, sizeof(data->this_month.download), "%.2f/%.2f", download / BYTES_UNIT, download / (BYTES_UNIT * days));
+				snprintf(data->this_month.total, sizeof(data->this_month.total), "%.2f/%.2f", total / BYTES_UNIT, total / (BYTES_UNIT * days));
+				snprintf(data->this_month.time_s, sizeof(data->this_month.time_s), "day:%d %s", week, str_time);
+				get_residual_flow(total, residual_flow);
+			}
+
+			if(strstr(strline, "last_month") != NULL)
+			{
+				sscanf(strline, "last_month: %llu %llu %llu %d %d %s", &upload, &download, &total, &days, &week, str_time);
+				snprintf(data->last_month.upload, sizeof(data->last_month.upload), "%.2f/%.2f", upload / BYTES_UNIT, upload / (BYTES_UNIT * days));
+				snprintf(data->last_month.download, sizeof(data->last_month.download), "%.2f/%.2f", download / BYTES_UNIT, download / (BYTES_UNIT * days));
+				snprintf(data->last_month.total, sizeof(data->last_month.total), "%.2f/%.2f", total / BYTES_UNIT, total / (BYTES_UNIT * days));
+				snprintf(data->last_month.time_s, sizeof(data->last_month.time_s), "day:%d %s", week, str_time);
+			}
+
+		}
+		fclose(fp);
+	}
 
 	return ;
 }
@@ -156,7 +241,7 @@ int parse_traffic_meter_config(cJSON *pRoot, struct traffic_conf *conf)
 			return -1;
 		}
 
-		if(intVal >= conf->limit_size)
+		if(NOT_LIMIT != conf->limit_type && intVal >= conf->limit_size)
 		{
 			cgi_debug("show limit size can not gt limit size\n");
 			return -1;
@@ -231,7 +316,7 @@ int set_traffic_meter_config(cgi_request_t *req, cgi_response_t *resp)
 	
 	save_traffic_meter_config(conf);
 	config_commit("traffic");
-	fork_exec(1, "/etc/init.d/traffic_meter restart");
+	fork_exec(1, "/etc/init.d/traffic_init restart");
 out:
 	param_free();
 
@@ -244,25 +329,27 @@ out:
 int get_traffic_meter_list(cgi_request_t *req, cgi_response_t *resp)
 {
 	int ret = 0;
+	time_t tt;
 	struct traffic_time_stat data;
+	char residual_flow[64] = {0};
 	
 	memset(&data, 0x0, sizeof(struct traffic_time_stat));
-	get_traffic_count_data(&data);
-
+	get_traffic_count_data(&data, residual_flow);
+	
 	webs_json_header(req->out);
     webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
-    webs_write(req->out, "\"start_time\":\"%d\",\"current_time\":\"%d\",\"remainning_date\":\"%s\","
-            "\"Today\":{\"connect_time\":\"%d\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"},"
-			"\"Yesterday\":{\"connect_time\":\"%d\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"},"
-			"\"ThisWeek\":{\"connect_time\":\"%d\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"},"
-			"\"ThisMonth\":{\"connect_time\":\"%d\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"},"
-			"\"LastMonth\":{\"connect_time\":\"%d\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"}",
-			1111111, 2222222, "1G 457M 768K Bytes",
-			data.today.connect_time, data.today.upload, data.today.download, data.today.total,
-			data.yesterday.connect_time, data.yesterday.upload, data.yesterday.download, data.yesterday.total,
-			data.this_week.connect_time, data.this_week.upload, data.this_week.download, data.this_week.total,
-			data.this_month.connect_time, data.this_month.upload, data.this_month.download, data.this_month.total,
-			data.last_month.connect_time, data.last_month.upload, data.last_month.download, data.last_month.total);
+    webs_write(req->out, "\"start_time\":%ld,\"current_time\":%ld,\"remainning_flow\":\"%s\","
+            "\"Today\":{\"count_time\":\"%s\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"},"
+			"\"Yesterday\":{\"count_time\":\"%s\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"},"
+			"\"ThisWeek\":{\"count_time\":\"%s\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"},"
+			"\"ThisMonth\":{\"count_time\":\"%s\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"},"
+			"\"LastMonth\":{\"count_time\":\"%s\",\"upload\":\"%s\",\"download\":\"%s\",\"total\":\"%s\"}",
+			data.cur_timespec, time(&tt), residual_flow,
+			data.today.time_s, data.today.upload, data.today.download, data.today.total,
+			data.yesterday.time_s, data.yesterday.upload, data.yesterday.download, data.yesterday.total,
+			data.this_week.time_s, data.this_week.upload, data.this_week.download, data.this_week.total,
+			data.this_month.time_s, data.this_month.upload, data.this_month.download, data.this_month.total,
+			data.last_month.time_s, data.last_month.upload, data.last_month.download, data.last_month.total);
     webs_write(req->out, "}}");
 
 	return ret;
@@ -271,7 +358,7 @@ int get_traffic_meter_list(cgi_request_t *req, cgi_response_t *resp)
 
 int restart_counter(cgi_request_t *req, cgi_response_t *resp)
 {    
-	fork_exec(1, "/usr/sbin/traffic_meter clearall");
+	fork_exec(1, "killall -USR2 traffic_meter");
     webs_json_header(req->out);
 	webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
 	return 0;

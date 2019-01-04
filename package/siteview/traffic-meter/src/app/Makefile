@@ -3,19 +3,19 @@ TARGET	:= traffic_meter
 SOURCES := main.c utils.c
 OBJS 	:= $(SOURCES:.c=.o)
 
-CFLAGS  += -Os -pipe
-LDFLAGS += -lm -lpthread
+CFLAGS  += -Os
+LDFLAGS += -lshared
 IFLAGS  += -I./
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS)
 
 .c.o:
-	$(CC) -c -o $@ -fpic $(CFLAGS) $(IFLAGS) $< 
+	$(CC) -c -o $@ $(CFLAGS) $(IFLAGS) $< 
 
 clean:
 	rm -f $(OBJS) $(TARGET)
 
-.PHONY: clean all
+.PHONY: clean

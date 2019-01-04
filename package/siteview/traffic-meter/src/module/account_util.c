@@ -149,7 +149,7 @@ int clear_table_data(struct t_account_table *table)
 		memset(&table->d, 0x0, sizeof(struct t_account_host));
 		memset(&table->a, 0x0, sizeof(struct t_account_host));
 		table->host_num = 0;
-		table->signal_flag = 2;
+		table->signal_flag = 1;
 		table->timespec = CURRENT_TIME_SEC;
 		atomic_set(&table->use, 1);
 
@@ -181,8 +181,7 @@ int clear_all_table_data(void)
 	list_for_each(pos, g_lru_table) {
 		struct t_account_table *table = list_entry(pos, struct t_account_table, list);
 		write_lock_bh(&ipt_account_lock);
-		//ret = clear_table_data(table);
-		table->signal_flag = 2;
+		ret = clear_table_data(table);
 		write_unlock_bh(&ipt_account_lock);
 	}
 	return ret;
@@ -216,6 +215,7 @@ int set_limit_size_of_table(uint8_t limit_direction, unsigned char *name, uint64
 	  	write_lock_bh(&ipt_account_lock);
 		table->limit_size = size;
 		table->limit_direction = limit_direction;
+		table->signal_flag = 1;
 	  	write_unlock_bh(&ipt_account_lock);
 		return 0;
 	}

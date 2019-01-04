@@ -330,6 +330,7 @@ void check_limit_data_size(struct t_account_table *t)
 {
 	if(t != NULL)
 	{
+		//ACCOUNT_DEBUG_PRINTK("signal_flag = %d limit_direction = %d, all:%llu, size:%llu\n", t->signal_flag, t->limit_direction, t->a.b_all, t->limit_size);
 		if(t->limit_direction != NOT_LIMIT && t->limit_size != 0)
 		{
 			if( (t->limit_direction == LIMIT_ALL && t->limit_size <= t->a.b_all) ||
@@ -338,7 +339,7 @@ void check_limit_data_size(struct t_account_table *t)
 			{
 				if(t->signal_flag == 1)
 				{
-					ACCOUNT_DEBUG_PRINTK("flag = %d, size:%llu\n", t->signal_flag, t->limit_size);
+					//ACCOUNT_DEBUG_PRINTK("flag = %d, size:%llu\n", t->signal_flag, t->limit_size);
 					// 发信号给应用层，开启相对的动作
 					schedule_work(&t->account_work);
 				}

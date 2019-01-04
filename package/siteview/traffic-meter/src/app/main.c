@@ -5,25 +5,19 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <pthread.h>
 
 #include "utils.h"
 
 static int daemon_flag = 1;
-static int zero_sec = 0;
-static unsigned char table_name[IPT_ACCOUNT_NAME_LEN + 1] = {0};
-static struct ipt_account_context g_ctx;
 int debug_flag = 0;
+static char limit_flag = 1;
 
+static struct traffic_param_t g_param;
+static struct ipt_account_context g_ctx;
 static struct traffic_stat last_day;
 static struct traffic_stat last_week;
 static struct traffic_stat last_month;
 struct traffic_stat_t g_stat_data;
-
-static pthread_mutex_t mutex;
 
 void show_usage(char *name)
 {
@@ -37,6 +31,9 @@ void show_usage(char *name)
 		"	-f, close daemon\n"
 		"	-D, open debug info\n"
 		"	-a, table name\n"
+		"	-d, limit direction\n"
+		"	-s, limit size\n"
+		"	-t, clear data time\n"
 		"	-h, print this help\n"
 		,name);
 	return ;
@@ -44,8 +41,10 @@ void show_usage(char *name)
 
 void process_exit()
 {	
+	/*程序退出时将数据写到flash中*/
+	write_data_to_flash(g_stat_data);
+	
 	destory_sockopt(&g_ctx);
-	pthread_mutex_destroy(&mutex);
 	unlink(TRAFFIC_METER_PID_FILE);
 	exit(0);
 }
@@ -57,11 +56,16 @@ void handle_over_limit_bytes(int action)
 		//printf("handle close\n");
 		system("/lib/traffic/traffic_meter.script stop");
 	}
-	else
+	else if(action == HANDLE_OPEN)
 	{
 		//printf("handle open\n");
 		system("/lib/traffic/traffic_meter.script start");
 	}
+	else if(action == HANDLE_CLEAR)
+	{
+		system("/lib/traffic/traffic_meter.script clearall");
+	}
+	
 	return ;
 }
 
@@ -79,21 +83,21 @@ void clear_traffic_stat(struct traffic_stat *stat)
 
 void clear_all_traffic_data()
 {
-	pthread_mutex_lock(&mutex);
+	handle_over_limit_bytes(HANDLE_CLEAR);
 	clear_traffic_stat(&g_stat_data.today);
 	clear_traffic_stat(&g_stat_data.yesterday);
 	clear_traffic_stat(&g_stat_data.week.st);
 	clear_traffic_stat(&g_stat_data.month.st);
+	clear_traffic_stat(&g_stat_data.last_month.st);
 	clear_traffic_stat(&last_day);
 	clear_traffic_stat(&last_week);
 	clear_traffic_stat(&last_month);
 	g_stat_data.week.count = 0;
 	g_stat_data.month.count = 0;
 	g_stat_data.last_month.count = 0;
+
+	limit_flag = 1;
 	unlink(TRAFFIC_METER_DATA_FILE);
-	printf("12333333333333333\n");
-	pthread_mutex_unlock(&mutex);
-	
 	return ;
 }
 
@@ -106,13 +110,11 @@ void sig_handler(int signo)
 			process_exit();
 			break;
 		case SIGUSR1:
+			limit_flag = 1;
 			/* 使用流量超出，做出相对的处理 */
 			handle_over_limit_bytes(HANDLE_OPEN);
 			break;
 		case SIGUSR2:
-			handle_over_limit_bytes(HANDLE_CLOSE);
-			break;
-		case SIGIO:
 			clear_all_traffic_data();
 			break;
 		default:
@@ -157,7 +159,9 @@ void handle_paramter(int argc, char *argv[])
 {
 	int ch = 0;
 
-	while( (ch = getopt(argc, argv, "fDha:")) != -1 )
+	memset(&g_param, 0x0, sizeof(struct traffic_param_t));
+
+	while( (ch = getopt(argc, argv, "fDha:d:s:t:")) != -1 )
 	{
 		switch(ch)
 		{
@@ -169,7 +173,28 @@ void handle_paramter(int argc, char *argv[])
 				break;
 			case 'a':
 				if(optarg != NULL)
-					strncpy(table_name, optarg, sizeof(table_name));
+					strncpy(g_param.table_name, optarg, sizeof(g_param.table_name));
+				break;
+			case 'd':
+				if(optarg != NULL)
+				{
+					if(strcmp(optarg, "download") == 0)
+						g_param.limit_dire = LIMIT_DOWNLOAD;
+					else if(strcmp(optarg, "upload") == 0)
+						g_param.limit_dire = LIMIT_UPLOAD;
+					else if(strcmp(optarg, "all") == 0)
+						g_param.limit_dire = LIMIT_ALL;
+					else
+						g_param.limit_dire = NOT_LIMIT;
+				}
+				break;
+			case 't':
+				if(optarg != NULL)
+					g_param.zero_sec = atoi(optarg);
+				break;
+			case 's':
+				if(optarg != NULL)
+					g_param.limit_size = atoi(optarg);
 				break;
 			case 'h':
 				show_usage(argv[0]);
@@ -317,7 +342,7 @@ cleanup_ok:
 
 int get_traffic_data_by_sockopt(struct ipt_account_context *ctx)
 {		
-	strncpy(ctx->handle.name, table_name, sizeof(ctx->handle.name));
+	strncpy(ctx->handle.name, g_param.table_name, sizeof(ctx->handle.name));
 	return ipt_account_get_data_of_table(ctx);	
 }
 
@@ -349,67 +374,8 @@ void init_traffic_stat_data()
 	}
 	
 	memset(&g_stat_data, 0x0, sizeof(struct traffic_stat_t));
+	dump_traffic_data(g_stat_data);
 	return ;
-}
-
-/*读取上次保存在flash里面的数据*/
-int read_data_to_flash(struct traffic_stat_t *data)
-{
-	int len = 0;
-	int fd = 0;
-
-	if(data == NULL)
-	{
-		printf("data is null!\n");
-		return -1;
-	}
-	
-	memset(data, 0x0, sizeof(struct traffic_stat_t));
-	fd = open(SAVE_TO_FLASH_OF_FLIE,  O_RDONLY);
-	if(fd < 0)
-	{
-		printf("open %s file failed!\n", SAVE_TO_FLASH_OF_FLIE);
-		return -1;
-	}
-
-	len = read(fd, data, sizeof(struct traffic_stat_t));
-
-	close(fd);
-
-	if(len <= 0)
-	{
-		printf("read %s filed!\n", SAVE_TO_FLASH_OF_FLIE);
-		return -1;
-	}
-	
-	return 0;
-}
-
-
-/*将数据保存在flash里面*/
-int write_data_to_flash(struct traffic_stat_t data)
-{
-	int len = 0;
-	int fd = 0;
-
-	fd = open(SAVE_TO_FLASH_OF_FLIE,  O_WRONLY | O_CREAT);
-	if(fd < 0)
-	{
-		printf("open %s file failed!\n", SAVE_TO_FLASH_OF_FLIE);
-		return -1;
-	}
-
-	len = write(fd, &data, sizeof(struct traffic_stat_t));
-
-	close(fd);
-
-	if(len <= 0)
-	{
-		printf("write %s filed!\n", SAVE_TO_FLASH_OF_FLIE);
-		return -1;
-	}
-	
-	return 0;
 }
 
 void copy_traffic_data(struct traffic_stat *dst, struct traffic_stat *src)
@@ -477,7 +443,7 @@ void sync_data_to_kernel(struct traffic_stat data)
 		return ;
 	}
 
-	strncpy(ctx.handle.name, table_name, sizeof(ctx.handle.name));
+	strncpy(ctx.handle.name, g_param.table_name, sizeof(ctx.handle.name));
 	ctx.handle.data.info.dst_bytes = data.d_b;
 	ctx.handle.data.info.dst_packet = data.d_p;
 	ctx.handle.data.info.src_bytes = data.u_b;
@@ -485,7 +451,7 @@ void sync_data_to_kernel(struct traffic_stat data)
 	ctx.handle.data.info.total_bytes = data.t_b;
 	ctx.handle.data.info.total_packet = data.t_p;
 	ctx.handle.data.info.timespec = mktime(&data.tm_l);
-
+	
 	ipt_account_sync_data_of_table(&ctx);
 
 	destory_sockopt(&ctx);
@@ -545,12 +511,10 @@ void sync_all_data(struct traffic_stat_t data)
 	}
 }
 
-
 void init_global_data()
 {	
-	struct traffic_stat_t data;
+	struct data_info_t info;
 
-	pthread_mutex_init(&mutex, NULL);
 	/*初始化全局sockopt*/
 	init_sockopt(&g_ctx);
 	
@@ -558,15 +522,14 @@ void init_global_data()
 	init_traffic_stat_data();
 	
 	/*读取上次保存在flash里面的数据同步内核数据*/
-	if(read_data_to_flash(&data) == 0)
+	if(read_data_to_flash(&info) == 0)
 	{
-		pthread_mutex_lock(&mutex);
-		/*同步数据*/
-		sync_all_data(data);
-		pthread_mutex_unlock(&mutex);
+		if(check_data_is_true(info))
+		{
+			/*同步数据*/
+			sync_all_data(info.data);
+		}
 	}
-
-	
 	return ;
 }
 
@@ -574,7 +537,7 @@ void count_day_traffic_data(struct traffic_meter_info *info, struct tm *today)
 {
 	/*今天的00:01:00更新上次数据*/
 	int sec = today->tm_hour * 3600 + today->tm_min * 60 + today->tm_sec;
-	if(abs(UPDATA_TIME_EVERYDAY - sec) < TRAFFIC_METER_COUNT_INTERVAL)
+	if( (UPDATA_TIME_EVERYDAY > sec) && (UPDATA_TIME_EVERYDAY - sec) <= TRAFFIC_METER_COUNT_INTERVAL )
 	{
 		copy_traffic_data(&g_stat_data.yesterday, &g_stat_data.today);
 		get_traffic_stat(info, &last_day);
@@ -589,7 +552,8 @@ void count_week_traffic_data(struct traffic_meter_info *info, struct tm *today)
 {
 	/*这个星期最后一天的00:01:00更新上次数据*/
 	int sec = today->tm_hour * 3600 + today->tm_min * 60 + today->tm_sec;
-	if(today->tm_wday == 1 && abs(UPDATA_TIME_EVERYDAY - sec) < TRAFFIC_METER_COUNT_INTERVAL)
+	if(today->tm_wday == 1 && 
+		((UPDATA_TIME_EVERYDAY > sec) && (UPDATA_TIME_EVERYDAY - sec) <= TRAFFIC_METER_COUNT_INTERVAL))
 	{
 		get_traffic_stat(info, &last_week);
 	}
@@ -606,7 +570,8 @@ void count_month_traffic_data(struct traffic_meter_info *info, struct tm *today)
 	int sec = today->tm_hour * 3600 + today->tm_min * 60 + today->tm_sec;
 	
 	/*这个月第一天的00:01:00更新上次数据*/
-	if(today->tm_mday == 1 && abs(UPDATA_TIME_EVERYDAY - sec) < TRAFFIC_METER_COUNT_INTERVAL)
+	if(today->tm_mday == 1 &&
+		((UPDATA_TIME_EVERYDAY > sec) && (UPDATA_TIME_EVERYDAY - sec) <= TRAFFIC_METER_COUNT_INTERVAL))
 	{
 		copy_traffic_data(&g_stat_data.last_month.st, &g_stat_data.month.st);
 		g_stat_data.last_month.count = g_stat_data.month.count;
@@ -641,108 +606,84 @@ void traffic_statistic_of_time(struct traffic_meter_info *info)
 	return;
 }
 
-void dump_traffic_data(struct traffic_stat_t data)
+void check_data_is_limit_paramter()
 {
-	if(debug_flag == 1)
-	{
-		printf("=================================================================================\n");
-		printf("today: %llu %llu %llu %ld\n", data.today.u_b, data.today.d_b, 
-			data.today.t_b, mktime(&data.today.tm_l));
-		
-		printf("yesterday: %llu %llu %llu %ld\n", data.yesterday.u_b, data.yesterday.d_b, 
-			data.yesterday.t_b, mktime(&data.yesterday.tm_l));
-
-		printf("week: %llu %llu %llu %d %ld\n", data.week.st.u_b, data.week.st.d_b, 
-			data.week.st.t_b, data.week.count, mktime(&data.week.st.tm_l));
-		
-		printf("month: %llu %llu %llu %d %ld\n", data.month.st.u_b, data.month.st.d_b, 
-			data.month.st.t_b, data.month.count, mktime(&data.month.st.tm_l));
-
-		printf("last_month: %llu %llu %llu %d %ld\n", data.last_month.st.u_b, data.last_month.st.d_b, 
-			data.last_month.st.t_b, data.last_month.count, mktime(&data.last_month.st.tm_l));
-		printf("=================================================================================\n\n");
-	}
-	return ;
-}
-
-
-void write_traffic_data_to_file()
-{
-	FILE *fp = NULL;
+	int zero_time = 0;
+	struct tm today;
 	
-	fp = fopen(TRAFFIC_METER_DATA_FILE, "w");
-	if(fp != NULL)
+	get_current_systime(&today);
+
+	zero_time = today.tm_mday * 24 * 3600 + today.tm_hour * 3600 + today.tm_min * 60 + today.tm_sec;
+	if(zero_time == g_param.zero_sec)
 	{
-		fprintf(fp, "start timespec: %ld\n", mktime(&g_stat_data.month.st.tm_l));
-
-		fprintf(fp, "today: %llu %llu %llu %02d:%02d\n", g_stat_data.today.u_b, g_stat_data.today.d_b,
-			g_stat_data.today.t_b, g_stat_data.today.tm_l.tm_hour, g_stat_data.today.tm_l.tm_min);
-
-		fprintf(fp, "yesterday: %llu %llu %llu %02d:%02d\n", g_stat_data.yesterday.u_b, g_stat_data.yesterday.d_b,
-			g_stat_data.yesterday.t_b, g_stat_data.yesterday.tm_l.tm_hour, g_stat_data.yesterday.tm_l.tm_min);
-
-		if(g_stat_data.week.count <= 0)
-			g_stat_data.week.count = 1;
-		fprintf(fp, "week: %llu %llu %llu %d %d %02d:%02d\n", 
-			g_stat_data.week.st.u_b,
-			g_stat_data.week.st.d_b,
-			g_stat_data.week.st.t_b,
-			g_stat_data.week.count,
-			g_stat_data.week.st.tm_l.tm_wday,
-			g_stat_data.week.st.tm_l.tm_hour, 
-			g_stat_data.week.st.tm_l.tm_min);	
-
-		if(g_stat_data.month.count <= 0)
-			g_stat_data.month.count = 1;
-		fprintf(fp, "month: %llu %llu %llu %d %d %02d:%02d\n", 
-			g_stat_data.month.st.u_b,
-			g_stat_data.month.st.d_b,
-			g_stat_data.month.st.t_b,
-			g_stat_data.month.count,
-			g_stat_data.month.st.tm_l.tm_mday,
-			g_stat_data.month.st.tm_l.tm_hour, 
-			g_stat_data.month.st.tm_l.tm_min);
-				
-		if(g_stat_data.last_month.count <= 0)
-			g_stat_data.last_month.count = 1;
-		fprintf(fp, "last_month: %llu %llu %llu %d %d %02d:%02d\n", 
-			g_stat_data.last_month.st.u_b,
-			g_stat_data.last_month.st.d_b,
-			g_stat_data.last_month.st.t_b,
-			g_stat_data.last_month.count,
-			g_stat_data.last_month.st.tm_l.tm_mday,
-			g_stat_data.last_month.st.tm_l.tm_hour, 
-			g_stat_data.last_month.st.tm_l.tm_min);
-
-		fclose(fp);
+		clear_all_traffic_data();
 	}
-	return;
+
+	if(g_param.limit_dire != NOT_LIMIT && limit_flag == 1)
+	{
+		unsigned long long limit_size = g_param.limit_size * 1024 * 1024LL;
+		//printf("dir = %d limit_size = %lld, total = %lld, limit_flag = %d\n", g_param.limit_dire, limit_size, g_stat_data.month.st.t_b, limit_flag);
+		if(g_param.limit_dire == LIMIT_DOWNLOAD)
+		{
+			if(limit_size > g_stat_data.month.st.d_b)
+			{
+				limit_flag = 0;
+			}
+		}
+		else if(g_param.limit_dire == LIMIT_UPLOAD)
+		{
+			if(limit_size > g_stat_data.month.st.u_b)
+			{
+				limit_flag = 0;
+			}
+
+		}
+		else if(g_param.limit_dire == LIMIT_ALL)
+		{
+			if(limit_size > g_stat_data.month.st.t_b)
+			{
+				limit_flag = 0;
+			}
+		}
+
+		if(limit_flag == 0)
+		{
+			handle_over_limit_bytes(HANDLE_CLOSE);
+		}
+	}
+	
 }
 
 void loop_main()
 {	
+	int read_data_flag = 0;
 	struct traffic_meter_info *info = NULL;
+
 	while(1)
 	{
-		/*获取流量统计数据*/
-		if(get_traffic_data_by_sockopt(&g_ctx) == 0)
+		if(read_data_flag == 0)
 		{
-			info = (struct traffic_meter_info *) g_ctx.data;
+			/*获取流量统计数据*/
+			if(get_traffic_data_by_sockopt(&g_ctx) == 0)
+			{
+				info = (struct traffic_meter_info *) g_ctx.data;
+				
+				/*根据时间来统计流量使用情况*/
+				traffic_statistic_of_time(info);
+				
+				dump_traffic_data(g_stat_data);
+				
+				/*将数据写入文件中*/
+				write_traffic_data_to_file(g_stat_data);
+			}
 			
-			pthread_mutex_lock(&mutex);
-			/*根据时间来统计流量使用情况*/
-			traffic_statistic_of_time(info);
-			
-			/*将数据写入文件中*/
-			write_traffic_data_to_file();
+			read_data_flag = TRAFFIC_METER_COUNT_INTERVAL;
+		}
+		/*检查数据是否达到限制参数*/
+		check_data_is_limit_paramter();
 
-			write_data_to_flash(g_stat_data);
-
-			dump_traffic_data(g_stat_data);			
-			pthread_mutex_unlock(&mutex);
-
-		}		
-		sleep(TRAFFIC_METER_COUNT_INTERVAL);
+		read_data_flag--;
+		sleep(1);
 	}
 }
 
@@ -754,6 +695,12 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+		if(access(TRAFFIC_METER_PID_FILE, F_OK) == 0)
+		{
+			printf("This process is exist!\n");
+			return 1;
+		}
+	
 		/*参数处理*/
 		handle_paramter(argc, argv);
 		

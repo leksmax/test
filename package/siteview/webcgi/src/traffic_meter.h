@@ -3,7 +3,7 @@
 
 #include "servlet.h"
 
-#define TRAFFIC_LIMIT_ENABLED				("traffic.limit.enabled")
+#define TRAFFIC_LIMIT_ENABLED				("traffic.basic.enabled")
 #define TRAFFIC_LIMIT_TYPE					("traffic.limit.type")
 #define TRAFFIC_LIMIT_SIZE					("traffic.limit.monthly_size")
 #define TRAFFIC_LIMIT_VOLUME				("traffic.limit.data_volume")
@@ -16,8 +16,12 @@
 #define TRAFFIC_ACTION_LED_ENABLED			("traffic.action.led_enabled")
 #define TRAFFIC_ACTION_DISCONNECT_NETWORK	("traffic.action.disconnect_network")
 
+#define TRAFFIC_METER_DATA_FILE				("/tmp/traffic_every_month_data")
+#define	BYTES_UNIT							(1024 * 1024.00)
+
 enum{
 	NOT_LIMIT,
+	LIMIT_UPLOAD,
 	LIMIT_DOWNLOAD,
 	LIMIT_ALL
 };
@@ -36,13 +40,14 @@ struct traffic_conf{
 };
 
 struct traffic_stat{
-	int connect_time;
+	char time_s[20];
 	char upload[20];
 	char download[20];
 	char total[20];
 };
 
 struct traffic_time_stat{
+	long cur_timespec;
 	struct traffic_stat today;
 	struct traffic_stat yesterday;
 	struct traffic_stat this_week;
@@ -54,5 +59,4 @@ int get_traffic_meter_config(cgi_request_t *req, cgi_response_t *resp);
 int get_traffic_meter_list(cgi_request_t *req, cgi_response_t *resp);
 int set_traffic_meter_config(cgi_request_t *req, cgi_response_t *resp);
 int restart_counter(cgi_request_t *req, cgi_response_t *resp);
-
 #endif //__TRAFFIC_METER_H 
