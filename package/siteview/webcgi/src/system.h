@@ -15,12 +15,32 @@
 #define FIRMWARE_PATH "/tmp/firmware.bin"
 
 /* ntp配置 */
-typedef struct ntp_cfg {
+typedef struct {
     int enabled;
     char server1[16];
     char server2[16];
     int timezone;
 } ntp_cfg_t;
+
+typedef struct {
+    int enabled;
+    int log_level;
+    int log_remote;
+    char server_ip[16];
+} syslog_cfg_t;
+
+#define SYSLOG_ENABLE "system.@syslog[0].enabled"
+#define SYSLOG_SIZE "system.@syslog[0].log_size"
+#define SYSLOG_FILE "system.@syslog[0].log_file"
+#define SYSLOG_REMOTE "system.@syslog[0].log_remote"
+#define SYSLOG_IP "system.@syslog[0].log_ip"
+#define SYSLOG_PORT "system.@syslog[0].log_port"
+#define SYSLOG_LEVEL "system.@syslog[0].log_level"
+
+#define NTP_ENABLED "system.@ntpclient[0].enabled"
+#define NTP_TIMEZONE "system.@ntpclient[0].timezone"
+#define NTP_SERVER1 "system.@ntpclient[0].server1"
+#define NTP_SERVER2 "system.@ntpclient[0].server2"
 
 /* 重启与复位 */
 int do_reboot(cgi_request_t * req, cgi_response_t * resp);

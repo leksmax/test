@@ -37,7 +37,7 @@ int fork_exec(int wait, const char *fmt, ...)
     char cmdbuf[512] = {0};
 
     pid = fork();
-    if(pid <  0)
+    if(pid < 0)
     {
         exit(1);
     }
@@ -156,19 +156,20 @@ int config_uncommit(const char *name)
 
 #define WEB_API
 
-void webs_file_header(wp_t *wp, char *filename, int content_len)
+void webs_file_header(wp_t *wp, const char *filename)
 {
     fprintf(wp, "Status: 200 OK\r\n");
-    fprintf(wp, "Content-Disposition: attachment; filename=\"%s\"\r\n", filename);
-    fprintf(wp, "Content-Length: %d\r\n", content_len);
     fprintf(wp, "Content-Type: application/octet-stream\r\n");
+    fprintf(wp, "Content-Disposition: attachment; filename=\"%s\"\r\n", filename);
+    fprintf(wp, "Pragma: no-cache\r\n");
+    fprintf(wp, "Cache-Control: no-cache\r\n");
     fprintf(wp, "\r\n");
 }
 
 void webs_json_header(wp_t *wp)
 {
     fprintf(wp, "Status: 200 OK\r\n");
-    fprintf(wp, "Content-type: application/json; charset=utf-8\r\n");
+    fprintf(wp, "Content-Type: application/json; charset=utf-8\r\n");
     fprintf(wp, "Pragma: no-cache\r\n");
     fprintf(wp, "Cache-Control: no-cache\r\n");
     fprintf(wp, "\r\n");
@@ -177,7 +178,7 @@ void webs_json_header(wp_t *wp)
 void webs_text_header(wp_t *wp)
 {
     fprintf(wp, "Status: 200 OK\r\n");
-    fprintf(wp, "Content-type: text/plain; charset=utf-8\r\n");
+    fprintf(wp, "Content-Type: text/plain; charset=utf-8\r\n");
     fprintf(wp, "Pragma: no-cache\r\n");
     fprintf(wp, "Cache-Control: no-cache\r\n");
     fprintf(wp, "\r\n");
@@ -186,7 +187,7 @@ void webs_text_header(wp_t *wp)
 void webs_redirect(wp_t *wp, char *html)
 {
     fprintf(wp, "Status: 307 OK\r\n");
-    fprintf(wp, "Content-type: text/plain; charset=utf-8\r\n");
+    fprintf(wp, "Content-Type: text/plain; charset=utf-8\r\n");
     fprintf(wp, "\r\n");    
 }
 
