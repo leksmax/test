@@ -93,7 +93,7 @@ service_triggers()
 start_service()
 {
 	config_load system
-	config_foreach start_service_daemon system
-	config_foreach start_service_file system
-	config_foreach start_service_remote system
+	config_foreach start_service_daemon syslog
+	config_foreach start_service_file syslog
+	config_foreach start_service_remote syslog
 }

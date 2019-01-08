@@ -582,6 +582,25 @@ typedef struct {
     char info[128];    
 } loginfo_t;
 
+static void json_string_encode(char *str, int len)
+{
+    int i = 0;
+    char val;
+    
+    for (i = 0; i < len; i ++)
+    {
+        val = str[i];
+        switch(val)
+        {
+            case '"':
+                str[i] = '\'';
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 static int syslog_format(char *logbuf, loginfo_t *log)
 {
     int i = 0;
@@ -591,8 +610,6 @@ static int syslog_format(char *logbuf, loginfo_t *log)
     char week_str[10], month_str[10];
     
 	memset(&t, 0x0, sizeof(struct tm));
-
-    cgi_debug("\n");
     
 	ret = sscanf(logbuf, "%s %s %d %d:%d:%d %d %[^.].%[^. ] %[^\n]",
 		week_str, month_str, &t.tm_mday, &t.tm_hour, &t.tm_min, &t.tm_sec, &t.tm_year, log->module, log->level, log->info);
@@ -610,8 +627,6 @@ static int syslog_format(char *logbuf, loginfo_t *log)
         }
     }
 
-    cgi_debug("\n");
-
     for (i = 1; i < _WEEK_MAX; i ++)
     {
         if (!strcmp(week_str, weeks[i]))
@@ -620,8 +635,6 @@ static int syslog_format(char *logbuf, loginfo_t *log)
             break;
         }
     }    
-
-    cgi_debug("\n");
     
 	t.tm_mon = month_int - 1;
 	t.tm_wday = week_int - 1;
@@ -630,7 +643,8 @@ static int syslog_format(char *logbuf, loginfo_t *log)
 
 	log->time = mktime(&t);
 
-    cgi_debug("\n");
+    /* json数据处理 */
+    json_string_encode(log->info, strlen(log->info));
 
     return 0;
 }
@@ -663,7 +677,7 @@ int get_syslog_info(cgi_request_t *req, cgi_response_t *resp)
     webs_write(req->out, "\"syslog\":[");
 
     while (fgets(logbuf, sizeof(logbuf), fp))
-    {
+    {        
         /* 格式化 */
         memset(&log, 0x0, sizeof(loginfo_t));
         

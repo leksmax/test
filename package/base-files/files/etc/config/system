@@ -1,4 +1,11 @@
 config system
-	option hostname	OpenWrt
-	option log_size	64
+	option hostname 'OpenWrt'
+
+config syslog
+	option enabled '1'
+	option log_size 64
 	option log_file '/var/syslog'
+	option log_level '7'
+	option log_remote '0'
+	option log_ip '192.168.1.11'
+	option log_port '514'
