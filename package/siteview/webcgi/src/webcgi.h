@@ -4,5 +4,6 @@
 
 #include "utils.h"
 #include "servlet.h"
+#include "option.h"
 
 #endif

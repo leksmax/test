@@ -11,7 +11,7 @@
 #include "network.h"
 
 const char *lan_names[_LAN_UNIT_MAX] = {
-    "(bug)",
+    "(error)",
     "LAN1",
     "LAN2",
     "LAN3",
@@ -19,7 +19,7 @@ const char *lan_names[_LAN_UNIT_MAX] = {
 };
 
 const char *wan_names[_WAN_UNIT_MAX] = {
-    "(bug)",
+    "(error)",
     "WAN1",
     "WAN2",
 };

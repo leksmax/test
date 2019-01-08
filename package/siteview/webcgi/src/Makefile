@@ -1,6 +1,6 @@
 
 TARGET  := web-cgi
-SOURCES := main.c session.c servlet.c plugin.c upload.c cjson.c utils.c
+SOURCES := main.c session.c servlet.c plugin.c upload.c option.c utils.c cjson.c
 SOURCES += auth.c network.c wireless.c vlan.c firewall.c system.c services.c traffic_meter.c
 OBJS    := $(SOURCES:.c=.o)
 
