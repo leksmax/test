@@ -165,7 +165,7 @@ int do_factory_reset(cgi_request_t *req, cgi_response_t *resp)
 {
     webs_json_header(req->out);
     webs_write(req->out, "{\"code\":0,\"data\":{}}");
-    fork_exec(1, "jffs2reset -y && reboot");
+    fork_exec(1, "firstboot && reboot");
     return 0;
 }
 
