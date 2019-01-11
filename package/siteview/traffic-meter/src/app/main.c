@@ -10,7 +10,6 @@
 
 static int daemon_flag = 1;
 int debug_flag = 0;
-static char limit_flag = 1;
 
 static struct traffic_param_t g_param;
 static struct ipt_account_context g_ctx;
@@ -28,6 +27,7 @@ void show_usage(char *name)
 		"	[clear name] clear all data of table\n"
 		"	[clearall] clear all data of all table\n"
 		"	[sync] sync data to kernel\n"
+		"	[cleandataflash] clean taffic data of flash\n"
 		"	-f, close daemon\n"
 		"	-D, open debug info\n"
 		"	-a, table name\n"
@@ -95,8 +95,9 @@ void clear_all_traffic_data()
 	g_stat_data.week.count = 0;
 	g_stat_data.month.count = 0;
 	g_stat_data.last_month.count = 0;
+	
+	handle_over_limit_bytes(HANDLE_CLOSE);
 
-	limit_flag = 1;
 	unlink(TRAFFIC_METER_DATA_FILE);
 	return ;
 }
@@ -110,7 +111,6 @@ void sig_handler(int signo)
 			process_exit();
 			break;
 		case SIGUSR1:
-			limit_flag = 1;
 			/* 使用流量超出，做出相对的处理 */
 			handle_over_limit_bytes(HANDLE_OPEN);
 			break;
@@ -135,7 +135,6 @@ void init_sigaction()
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGUSR1, &act, NULL);
 	sigaction(SIGUSR2, &act, NULL);
-	sigaction(SIGIO, &act, NULL);
 	
 	return ;
 }
@@ -333,6 +332,10 @@ int init_sockopt_function(int argc, char *argv[])
 		
 		goto cleanup_ok;
 	}
+	else if(strcmp(argv[1], "cleandataflash") == 0)
+	{
+		clean_data_to_flash();
+	}
 	
 cleanup_ok:	
 	destory_sockopt(&ctx);
@@ -391,17 +394,22 @@ void copy_traffic_data(struct traffic_stat *dst, struct traffic_stat *src)
 	return ;
 }
 
+unsigned long long inline sub_data_operation(unsigned long long minuend, unsigned long long sub)
+{
+	return ((minuend > sub) ? (minuend - sub) : 0);
+}
+
 void counter_traffic_data(struct traffic_stat *dst, struct traffic_meter_info *info, 
 	struct traffic_stat last)
 {
 	memcpy(&dst->tm_l, &last.tm_l, sizeof(struct tm));
 	
-	dst->u_b = info->src_bytes - last.u_b;
-	dst->d_b = info->dst_bytes - last.d_b;
-	dst->t_b = info->total_bytes - last.t_b;	
-	dst->d_p = info->src_packet - last.u_p;
-	dst->u_p = info->dst_packet - last.d_p;
-	dst->t_p = info->total_packet - last.t_p;
+	dst->u_b = sub_data_operation(info->src_bytes, last.u_b);
+	dst->d_b = sub_data_operation(info->dst_bytes, last.d_b);
+	dst->t_b = sub_data_operation(info->total_bytes, last.t_b);	
+	dst->d_p = sub_data_operation(info->src_packet, last.u_p);
+	dst->u_p = sub_data_operation(info->dst_packet, last.d_p);
+	dst->t_p = sub_data_operation(info->total_packet, last.t_p);
 	return ;
 }
 
@@ -436,7 +444,7 @@ int get_month_max_day(int year, int month)
 void sync_data_to_kernel(struct traffic_stat data)
 {
 	struct ipt_account_context ctx;
-
+	
 	if (init_sockopt(&ctx) < 0)
 	{
 		printf("sync data to kernel failed!\n");
@@ -456,6 +464,17 @@ void sync_data_to_kernel(struct traffic_stat data)
 
 	destory_sockopt(&ctx);
 	return;
+}
+
+void sub_traffic_data(struct traffic_stat *dst, struct traffic_stat total, struct traffic_stat sub)
+{
+	dst->u_b += sub_data_operation(total.u_b, sub.u_b);
+	dst->u_p += sub_data_operation(total.u_p, sub.u_p);
+	dst->d_b += sub_data_operation(total.d_b, sub.d_b);
+	dst->d_p += sub_data_operation(total.d_p, sub.d_p);
+	dst->t_b += sub_data_operation(total.t_b, sub.t_b);	
+	dst->t_p += sub_data_operation(total.t_p, sub.t_p);
+	return ;
 }
 
 void sync_all_data(struct traffic_stat_t data)
@@ -480,8 +499,15 @@ void sync_all_data(struct traffic_stat_t data)
 			{
 				copy_traffic_data(&g_stat_data.yesterday, &data.yesterday);
 				memcpy(&last_day.tm_l, &data.today.tm_l, sizeof(struct tm));
+				sub_traffic_data(&last_day, data.month.st, data.today);
 			}
-
+			else 
+			{
+				/* 不是同一天的数据，这天的数据重新计 */
+				copy_traffic_data(&last_day, &data.month.st);
+				memcpy(&last_day.tm_l, &today, sizeof(struct tm));
+			}
+			
 			max_day_month = get_month_max_day(today.tm_year + 1900, today.tm_mon + 1);
 			/*如果上次数据的今天和今天是差一天, 就将昨天的数据更新*/
 			if(abs(today.tm_mday -data.today.tm_l.tm_mday) == 1 ||
@@ -490,16 +516,29 @@ void sync_all_data(struct traffic_stat_t data)
 				copy_traffic_data(&g_stat_data.yesterday, &data.today);
 			}
 
+			/*如果在同一个星期*/
 			if( (data.week.st.tm_l.tm_wday == 0 && today.tm_mday == data.week.st.tm_l.tm_mday) ||
 				(data.week.st.tm_l.tm_wday != 0 && abs(today.tm_mday - data.week.st.tm_l.tm_mday) == (today.tm_wday - data.week.st.tm_l.tm_wday)))
 			{
 				memcpy(&last_week.tm_l, &data.week.st.tm_l, sizeof(struct tm));
+				sub_traffic_data(&last_week, data.month.st, data.week.st);
+			}
+			else
+			{
+				 /* 不是同一个星期的数据，这周重新计数 */
+				copy_traffic_data(&last_week, &data.month.st);
+				memcpy(&last_week.tm_l, &today, sizeof(struct tm));
 			}
 				
 			/*同步这个月的数据同步到内核*/
 			sync_data_to_kernel(data.month.st);
 
 		}
+
+		//dump_traffic_stat(last_day, "last_day");
+		//dump_traffic_stat(last_week, "last_week");		
+		//dump_traffic_stat(last_month, "last_month");
+			
 		/*如果上次的数据这个月时间和现在时间是差一个月，
 			就将数据同步到上个月*/
 		if( abs(today.tm_mon - data.month.st.tm_l.tm_mon) == 1 ||
@@ -618,40 +657,6 @@ void check_data_is_limit_paramter()
 	{
 		clear_all_traffic_data();
 	}
-
-	if(g_param.limit_dire != NOT_LIMIT && limit_flag == 1)
-	{
-		unsigned long long limit_size = g_param.limit_size * 1024 * 1024LL;
-		//printf("dir = %d limit_size = %lld, total = %lld, limit_flag = %d\n", g_param.limit_dire, limit_size, g_stat_data.month.st.t_b, limit_flag);
-		if(g_param.limit_dire == LIMIT_DOWNLOAD)
-		{
-			if(limit_size > g_stat_data.month.st.d_b)
-			{
-				limit_flag = 0;
-			}
-		}
-		else if(g_param.limit_dire == LIMIT_UPLOAD)
-		{
-			if(limit_size > g_stat_data.month.st.u_b)
-			{
-				limit_flag = 0;
-			}
-
-		}
-		else if(g_param.limit_dire == LIMIT_ALL)
-		{
-			if(limit_size > g_stat_data.month.st.t_b)
-			{
-				limit_flag = 0;
-			}
-		}
-
-		if(limit_flag == 0)
-		{
-			handle_over_limit_bytes(HANDLE_CLOSE);
-		}
-	}
-	
 }
 
 void loop_main()

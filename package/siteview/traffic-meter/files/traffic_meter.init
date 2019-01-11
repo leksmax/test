@@ -1,7 +1,7 @@
 #!/bin/sh /etc/rc.common
 
 START=55
-USE_PROCD=1
+#USE_PROCD=1
 
 TRAFFIC_TULE_NAME="traffic_meter"
 IPCALC="/usr/sbin/ipcalc"
@@ -44,24 +44,29 @@ net_mask_to_subnet()
 }
 
 add_iptables_rule(){
-	iptables -N ${TRAFFIC_TULE_NAME}
-	iptables -I FORWARD -j ${TRAFFIC_TULE_NAME}
 	
-	local ipaddr netmask
-	config_load network
-	config_get ipaddr lan ipaddr
-	config_get netmask lan netmask
-	
-	subnet=`net_mask_to_subnet ${ipaddr} ${netmask}`
-	
-	iptables -A ${TRAFFIC_TULE_NAME} -m account --aaddr ${subnet} --aname ${table_name} -j ACCEPT
-	#echo "iptables -A ${TRAFFIC_TULE_NAME} -m account --aaddr ${subnet} --aname ${table_name} -j ACCEPT"
+	if [ -z "`iptables -L | grep -w "Chain ${TRAFFIC_TULE_NAME}" | grep -v grep`" ]; then
+		iptables -N ${TRAFFIC_TULE_NAME}
+		iptables -I FORWARD -j ${TRAFFIC_TULE_NAME}
+		
+		local ipaddr netmask
+		config_load network
+		config_get ipaddr lan ipaddr
+		config_get netmask lan netmask
+		
+		subnet=`net_mask_to_subnet ${ipaddr} ${netmask}`
+		
+		iptables -A ${TRAFFIC_TULE_NAME} -m account --aaddr ${subnet} --aname ${table_name} -j ACCEPT
+		#echo "iptables -A ${TRAFFIC_TULE_NAME} -m account --aaddr ${subnet} --aname ${table_name} -j ACCEPT"
+	fi
 }
 
-del_iptables_rule(){
-	iptables -F ${TRAFFIC_TULE_NAME}
-	iptables -D FORWARD -j ${TRAFFIC_TULE_NAME}
-	iptables -X ${TRAFFIC_TULE_NAME}
+del_iptables_rule(){	
+	if [ -n "`iptables -L | grep -w "Chain ${TRAFFIC_TULE_NAME}" | grep -v grep`" ]; then
+		iptables -F ${TRAFFIC_TULE_NAME}
+		iptables -D FORWARD -j ${TRAFFIC_TULE_NAME}
+		iptables -X ${TRAFFIC_TULE_NAME}
+	fi
 }
 
 start_traffic_meter(){
@@ -77,6 +82,8 @@ start_traffic_meter(){
 	
 	add_iptables_rule
 
+	/lib/traffic/traffic_meter.script stop
+	
 	if [ "x${type}" == "x0" ]; then
 		/usr/sbin/traffic_meter set limit_not ${table_name} 0
 	else
@@ -110,22 +117,31 @@ start_traffic_meter(){
 	if [ -e "/var/run/traffic_meter.pid" ] ; then
 		rm /var/run/traffic_meter.pid
 	fi
-	
-	echo "start traffic meter"
-	/usr/sbin/traffic_meter -a ${table_name} ${paramter}
+		
+	if [ -z "`ps | grep "traffic_meter" | grep -v grep`" ]; then 
+		echo "start traffic meter"
+		/usr/sbin/traffic_meter -a ${table_name} ${paramter}
+	fi
+}
+
+stop_traffic_meter(){	
+	if [ -n "`ps | grep "traffic_meter" | grep -v grep`" ]; then	
+		echo "stop traffic meter"
+		killall traffic_meter
+	fi
+	del_iptables_rule
 }
 
 boot(){
 	start_traffic_meter
 }
 
-stop_traffic_meter(){	
-	local running=`ps  | grep "traffic_meter" | grep -v grep`
-	if [ -n "${running}" ]; then	
-		echo "stop traffic meter"
-		killall traffic_meter
-	fi
-	del_iptables_rule
+stop(){
+	stop_traffic_meter
+}
+
+start(){
+	start_traffic_meter
 }
 
 restart(){

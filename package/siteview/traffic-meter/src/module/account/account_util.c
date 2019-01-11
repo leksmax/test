@@ -153,9 +153,9 @@ int clear_table_data(struct t_account_table *table)
 		table->timespec = CURRENT_TIME_SEC;
 		atomic_set(&table->use, 1);
 
-	  	write_lock_bh(&table->stats_lock);
+	  	write_lock_bh(&table->host_lock);
 		ipt_account_host_destroy(&table->host_list_head);		
-	  	write_unlock_bh(&table->stats_lock);
+	  	write_unlock_bh(&table->host_lock);
 
 		return 0;
 	}
@@ -168,9 +168,9 @@ int clear_one_table_data(char *name)
 	struct t_account_table *table = NULL;
 
 	table = find_account_table_by_name(name);
-	write_lock_bh(&ipt_account_lock);
+	write_lock_bh(&table->table_lock);
 	ret = clear_table_data(table);
-	write_unlock_bh(&ipt_account_lock);
+	write_unlock_bh(&table->table_lock);
 	return ret;
 }
 
@@ -178,12 +178,14 @@ int clear_all_table_data(void)
 {
 	int ret = -1;
 	struct list_head *pos;
+	write_lock_bh(&ipt_account_lock);
 	list_for_each(pos, g_lru_table) {
 		struct t_account_table *table = list_entry(pos, struct t_account_table, list);
-		write_lock_bh(&ipt_account_lock);
+		write_lock_bh(&table->table_lock);
 		ret = clear_table_data(table);
-		write_unlock_bh(&ipt_account_lock);
+		write_unlock_bh(&table->table_lock);
 	}
+	write_unlock_bh(&ipt_account_lock);
 	return ret;
 }
 
@@ -195,9 +197,9 @@ int del_host_from_table(unsigned char *name, unsigned char *macaddr)
 
 	if(table != NULL)
 	{
-	  	write_lock_bh(&table->stats_lock);
+	  	write_lock_bh(&table->host_lock);
 		del_host_by_mac(&table->host_list_head, macaddr);		
-	  	write_unlock_bh(&table->stats_lock);
+	  	write_unlock_bh(&table->host_lock);
 		return 0;
 	}
 	return -1;
@@ -212,11 +214,11 @@ int set_limit_size_of_table(uint8_t limit_direction, unsigned char *name, uint64
 	table = find_account_table_by_name(name);
 	if(table != NULL)
 	{
-	  	write_lock_bh(&ipt_account_lock);
+	  	write_lock_bh(&table->table_lock);
 		table->limit_size = size;
 		table->limit_direction = limit_direction;
 		table->signal_flag = 1;
-	  	write_unlock_bh(&ipt_account_lock);
+	  	write_unlock_bh(&table->table_lock);
 		return 0;
 	}
 	return -1;
@@ -231,9 +233,9 @@ int set_zero_time_of_table(unsigned char *name, uint64_t zero_time)
 	table = find_account_table_by_name(name);
 	if(table != NULL)
 	{
-	  	write_lock_bh(&ipt_account_lock);
+	  	write_lock_bh(&table->table_lock);
 		table->zero_time= zero_time;
-	  	write_unlock_bh(&ipt_account_lock);
+	  	write_unlock_bh(&table->table_lock);
 		return 0;
 	}
 	return -1;
@@ -246,6 +248,7 @@ int get_account_data_of_table(unsigned char *name, struct traffic_meter_info *da
 	table = find_account_table_by_name(name);
 	if(table != NULL)
 	{
+	  	read_lock_bh(&table->table_lock);
 		data->src_bytes = table->s.b_all;
 		data->src_packet = table->s.p_all;
 		data->dst_bytes = table->d.b_all;
@@ -253,6 +256,7 @@ int get_account_data_of_table(unsigned char *name, struct traffic_meter_info *da
 		data->total_bytes = table->a.b_all;
 		data->total_packet = table->a.p_all;
 		data->timespec = table->timespec.tv_sec;
+	  	read_unlock_bh(&table->table_lock);
 		return 0;
 	}
 
@@ -282,7 +286,7 @@ int sync_data_of_table(struct account_handle_sockopt handle)
 	table = find_account_table_by_name(handle.name);
 	if(table != NULL)
 	{
-  		write_lock_bh(&ipt_account_lock);	
+  		write_lock_bh(&table->table_lock);	
 		table->s.b_all += handle.data.info.src_bytes;
 		table->s.p_all += handle.data.info.src_bytes;
 		table->d.b_all += handle.data.info.dst_bytes;
@@ -290,7 +294,7 @@ int sync_data_of_table(struct account_handle_sockopt handle)
 		table->a.b_all += handle.data.info.total_bytes;
 		table->a.p_all += handle.data.info.total_bytes;
 		table->timespec.tv_sec = handle.data.info.timespec;
-	  	write_unlock_bh(&ipt_account_lock);
+	  	write_unlock_bh(&table->table_lock);
 		return 0;
 	}
 	

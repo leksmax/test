@@ -7,7 +7,10 @@ CFLAGS  += -Os
 LDFLAGS += -lshared
 IFLAGS  += -I./
 
-all: $(TARGET)
+all: $(TARGET) portal
+
+portal:
+	$(MAKE) -C ./portal
 
 $(TARGET): $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS)
@@ -18,4 +21,4 @@ $(TARGET): $(OBJS)
 clean:
 	rm -f $(OBJS) $(TARGET)
 
-.PHONY: clean
+.PHONY: clean portal

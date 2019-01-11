@@ -20,7 +20,7 @@ extern int debug_flag;
 #define DEV_BLOCK_NAME					("traffic_meter")
 #define TAG_DATA_HEADER					(0xeaea)
 
-#define TRAFFIC_METER_COUNT_INTERVAL	30 //s
+#define TRAFFIC_METER_COUNT_INTERVAL	10 //s
 #define UPDATA_TIME_EVERYDAY			(0 * 3600 + 1 * 60 + 0) //00:01:00
 
 typedef unsigned char uint8_t;

@@ -186,6 +186,16 @@ void dump_traffic_data(struct traffic_stat_t data)
 	return ;
 }
 
+void dump_traffic_stat(struct traffic_stat data, char *name)
+{
+	//if(debug_flag == 1)
+	{
+		printf("######################################################################################\n");
+		printf("%s: %llu %llu %llu %s\n", name, data.u_b, data.d_b, data.t_b, asctime(&data.tm_l));
+		printf("######################################################################################\n\n");
+	}
+}
+
 /*将数据写入临时文件中*/
 void write_traffic_data_to_file(struct traffic_stat_t data)
 {
@@ -266,7 +276,7 @@ int check_data_is_true(struct data_info_t info)
 	}
 
 	cksum = get_cksum(&info, sizeof(struct data_info_t) - 1);
-	printf("cksum = 0x%x, file cksum = 0x%x\n", cksum, info.cksum);
+	//printf("cksum = 0x%x, file cksum = 0x%x\n", cksum, info.cksum);
 	
 	dump_traffic_data(info.data);
 	if(cksum != info.cksum)
@@ -301,6 +311,16 @@ int write_data_to_flash(struct traffic_stat_t data)
 	dump_traffic_data(data);
 	
 	return flash_mtd_write(DEV_BLOCK_NAME, 0, (unsigned char *)&info, sizeof(struct data_info_t));
+}
+
+
+void clean_data_to_flash()
+{	
+	struct data_info_t info;
+
+	memset(&info, 0xff, sizeof(struct data_info_t));
+	flash_mtd_write(DEV_BLOCK_NAME, 0, (unsigned char *)&info, sizeof(struct data_info_t));
+	return ;
 }
 
 

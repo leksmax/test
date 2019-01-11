@@ -53,7 +53,8 @@ struct t_account_table{
 	struct t_account_stat s, d, a;			//整个子网的流量统计总和
 											//(total_src, total_dst, total_all)
   	atomic_t use; /* use counter, the number of rules which points to this table */
-  	rwlock_t stats_lock; /* lock, to assure that above union can be safely modified */	
+  	rwlock_t host_lock; /* host list lock, to assure that above union can be safely modified */
+	rwlock_t table_lock; /* table list lock*/
 	struct work_struct account_work;
 };
 

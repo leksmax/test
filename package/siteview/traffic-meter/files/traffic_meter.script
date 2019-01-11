@@ -1,51 +1,142 @@
 #!/bin/sh
 . /lib/functions.sh
 
+IPCALC="/usr/sbin/ipcalc"
+WEB_PORT=8086
+WEB_SERVER_NAME=/usr/sbin/portal
+
+TRAFFIC_TULE_NAME="traffic_meter"
+TRAFFIC_DNAT_NAME="traffic_meter_dnat"
+
+TRAFFIC_LIMIT_PAGE="/etc/portal/limit-traffic.html"
+TRAFFIC_LIMIT_PAGE_ORG="/etc/portal/limit-traffic.org"
+
 led_enabled=""
 disconnect_network=""
+show_limit_size=0
+monthly_size=0
 
 load_config(){
 	config_load "traffic"
-	
+		
+	config_get monthly_size limit monthly_size
 	config_get led_enabled action led_enabled
 	config_get disconnect_network action disconnect_network
+	config_get show_limit_size action show_limit_size
 }
 
+net_mask_to_subnet(){
+	eval "$(${IPCALC} -n -p ${1}/${2})"
+	echo "${NETWORK}/${PREFIX}"
+}
 
-open_action(){
-	load_config
-	if [ "x${led_enabled}" == "x1" ]; then
-		/sbin/ledcontrol -n wan1 -c amber -s blink
+add_limit_redirect_rule(){
+	if [ -z "`iptables -t nat -L | grep -w "Chain ${TRAFFIC_DNAT_NAME}" | grep -v grep`" ]; then
+		iptables -t nat -N ${TRAFFIC_DNAT_NAME}
+		iptables -t nat -I PREROUTING -j ${TRAFFIC_DNAT_NAME}
+		
+		local ipaddr netmask
+		config_load network 
+		config_get ipaddr lan ipaddr
+		config_get netmask lan netmask
+		
+		subnet=`net_mask_to_subnet ${ipaddr} ${netmask}`
+		
+		iptables -t nat -A ${TRAFFIC_DNAT_NAME} -p tcp --dport 80 ! -d ${subnet} -j DNAT --to ${ipaddr}:${WEB_PORT}		
+		#iptables -t nat -A ${TRAFFIC_DNAT_NAME} -p tcp --dport 433 -j DNAT --to ${ipaddr}:${WEB_SSL_PORT}
+		#echo "iptables -t nat -A ${TRAFFIC_DNAT_NAME} -p tcp --dport 80 ! -d ${subnet} -j DNAT --to ${ipaddr}:${WEB_PORT}"
 	fi
 	
-	if [ "x${disconnect_network}" == "x1" ]; then
-		echo "open disconnect network"
+	if [ -z "`ps  | grep -w "portal" | grep -v grep`" ]; then
+		local limit_size=$((${monthly_size} - ${show_limit_size}))
+		if [ "x${disconnect_network}" == "x1" ]; then
+			${WEB_SERVER_NAME} -p ${WEB_PORT} -F
+		else
+			${WEB_SERVER_NAME} -p ${WEB_PORT}
+			if [ -e  ${TRAFFIC_LIMIT_PAGE} ]; then
+				cp  ${TRAFFIC_LIMIT_PAGE} ${TRAFFIC_LIMIT_PAGE_ORG}
+				sed -i "s/LIMIT_SIZE/${limit_size}M/g" ${TRAFFIC_LIMIT_PAGE}
+			fi
+		fi
 	fi
 }
 
-close_action(){
-	load_config
+del_limit_redirect_rule(){
+	if [ -n "`iptables -t nat -L | grep -w "Chain ${TRAFFIC_DNAT_NAME}" | grep -v grep`" ]; then
+		iptables -t nat -F ${TRAFFIC_DNAT_NAME}
+		iptables -t nat -D PREROUTING -j ${TRAFFIC_DNAT_NAME}
+		iptables -t nat -X ${TRAFFIC_DNAT_NAME}
+	fi
+	if [ -n "`ps  | grep -w "portal" | grep -v grep`" ]; then
+		killall portal
+		if [ -e ${TRAFFIC_LIMIT_PAGE_ORG} ];then
+			cp ${TRAFFIC_LIMIT_PAGE_ORG} ${TRAFFIC_LIMIT_PAGE}
+			rm ${TRAFFIC_LIMIT_PAGE_ORG}
+		fi
+	fi
+}
+
+handle_limit_action(){
+	action=${1}
 	if [ "x${led_enabled}" == "x1" ]; then
+		if [ "${action}" == "enabled" ]; then
+			/sbin/ledcontrol -n wan1 -c amber -s blink
+		else		
+			/sbin/ledcontrol -n wan1 -c amber -s off
+		fi		
+	else
 		/sbin/ledcontrol -n wan1 -c amber -s off
 	fi
 	
-	if [ "x${disconnect_network}" == "x1" ]; then		
-		echo "close disconnect network"
+	local drop_rule_running=""
+	if [ -n "`iptables -t nat -L | grep -w "Chain ${TRAFFIC_DNAT_NAME}" | grep -v grep`" ]; then
+		drop_rule_running=`iptables -L ${TRAFFIC_TULE_NAME} | grep DROP | grep -v grep`
 	fi
+	
+	if [ "x${disconnect_network}" == "x1" ]; then
+		if [ "${action}" == "enabled" ]; then
+			iptables -I ${TRAFFIC_TULE_NAME} -p tcp ! --dport ${WEB_PORT} -j DROP
+			#echo "open disconnect network"
+		else
+			if [ -n "${drop_rule_running}" ]; then
+				iptables -D ${TRAFFIC_TULE_NAME} ! --dport ${WEB_PORT} -j DROP
+				#echo "close disconnect network"
+			fi
+		fi
+	else
+		if [ -n "${drop_rule_running}" ]; then
+			iptables -D ${TRAFFIC_TULE_NAME} ! --dport ${WEB_PORT} -j DROP
+			#echo "close disconnect network"
+		fi
+	fi
+
+	if [ "${action}" == "enabled" ]; then
+		add_limit_redirect_rule
+	else		
+		del_limit_redirect_rule
+	fi	
 }
 
 clear_all_data(){
 	/usr/sbin/traffic_meter clearall
 }
 
+load_config
+
 case "${1}" in
 	start)
-		open_action
+		handle_limit_action "enabled"
 	;;
 	stop)
-		close_action
+		handle_limit_action "disabled"
 	;;
 	clearall)
 		clear_all_data
+	;;
+	deldnat)
+		del_limit_redirect_rule
+	;;
+	adddnat)
+		add_limit_redirect_rule
 	;;
 esac

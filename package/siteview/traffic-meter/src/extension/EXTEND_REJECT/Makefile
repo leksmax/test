@@ -1,13 +1,13 @@
 
-LIB 	:= libipt_account.so
-SOURCES := libipt_account.c
+LIB		:= libipt_EXTEND_REJECT.so
+SOURCES := libipt_EXTEND_REJECT.c
 OBJS 	:= $(SOURCES:.c=.o)
 
 CFLAGS  += -Os -pipe
 LDFLAGS += -lm
 IFLAGS  += -I./
 
-all: $(LIB)
+all: $(LIB) 
 
 $(LIB): $(OBJS)
 	$(CC) -s -shared -o $@ $(OBJS) $(LDFLAGS)
@@ -16,6 +16,6 @@ $(OBJS): $(SOURCES)
 	$(CC) -c -o $@ -fpic $(CFLAGS) $(IFLAGS) $< 
 
 clean:
-	rm -f $(OBJS) $(LIB) 
+	rm -f $(OBJS) $(LIB)
 
 .PHONY: clean all

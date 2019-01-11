@@ -33,7 +33,7 @@ static void *ipt_account_seq_start (struct seq_file *file, loff_t *pos)
 		table->name, table->s.p_all, table->s.b_all, table->d.p_all,
 		table->d.b_all, table->a.p_all, table->a.b_all, table->timespec.tv_sec);
 	
-	read_lock_bh(&table->stats_lock);
+	read_lock_bh(&table->table_lock);
     if (*pos >= table->host_num)
 		return NULL;
 	
@@ -56,7 +56,7 @@ static void *ipt_account_seq_next (struct seq_file *file, void *v, loff_t *pos)
 static void ipt_account_seq_stop (struct seq_file *file, void *v)
 {
 	struct t_account_table *table = file->private;
-	read_unlock_bh(&table->stats_lock);
+	read_unlock_bh(&table->table_lock);
 	return ;
 }
 
@@ -151,15 +151,15 @@ static void send_signal_to_user(struct work_struct *work)
 			if( NULL != p )
 			{
 				table = container_of(work, struct t_account_table, account_work);
+				write_lock_bh(&table->table_lock);
 
 				if(table->signal_flag == 1)
 				{
 					ACCOUNT_DEBUG_PRINTK("flag = %d, size:%llu\n", table->signal_flag, table->limit_size);
-					write_lock_bh(&ipt_account_lock);
 					table->signal_flag = 0;
-					write_unlock_bh(&ipt_account_lock);
 					send_sig(SIGUSR1, p, 0); // 关闭
 				}
+				write_unlock_bh(&table->table_lock);
 			}
 		}
 	}
@@ -197,7 +197,8 @@ static int ipt_account_table_init(struct xt_match_ipt_account *match)
 	memset(&table->d, 0x0, sizeof(struct t_account_host));
 	memset(&table->a, 0x0, sizeof(struct t_account_host));
 	
-	table->stats_lock = __RW_LOCK_UNLOCKED(table->stats_lock);
+	table->host_lock = __RW_LOCK_UNLOCKED(table->host_lock);
+	table->table_lock = __RW_LOCK_UNLOCKED(table->table_lock);
 	atomic_set(&table->use, 1);
 	
 	write_lock_bh(&ipt_account_lock);
@@ -282,7 +283,8 @@ static
 void update_or_add_host_to_table(struct t_account_table *table, struct t_account_host *host)
 {
 	struct t_account_host *h = NULL;
-
+	
+	write_lock_bh(&table->host_lock);
 	h = find_host_by_mac_from_table(table, host->macaddr);
 	if(h == NULL)
 	{
@@ -324,6 +326,7 @@ void update_or_add_host_to_table(struct t_account_table *table, struct t_account
 		h->timespec = host->timespec;
 		h->ipaddr = host->ipaddr;
 	}
+	write_unlock_bh(&table->host_lock);
 }
 
 void check_limit_data_size(struct t_account_table *t)
@@ -387,6 +390,7 @@ static bool account_match(const struct sk_buff *skb, struct xt_action_param *par
 			return ret;
         }
 		memcpy(host.macaddr, neighbour->ha, ETH_ALEN);
+		neigh_release(neighbour);
 		
 		host.d.b_all = skb->len;
 		host.d.p_all = 1;
@@ -400,11 +404,11 @@ static bool account_match(const struct sk_buff *skb, struct xt_action_param *par
 	if(ret == true)
 	{
 		table = find_account_table_by_name(info->name);
-		if(table != NULL)
+		if(table != NULL && table->signal_flag != 0)
 		{	
 			check_limit_data_size(table);
 
-			write_lock_bh(&ipt_account_lock);
+			write_lock_bh(&table->table_lock);
 			
 			table->a.b_all += host.a.b_all;
 			table->a.p_all += host.a.p_all;
@@ -414,7 +418,7 @@ static bool account_match(const struct sk_buff *skb, struct xt_action_param *par
 			table->d.p_all += host.d.p_all;
 
 			update_or_add_host_to_table(table, &host);
-			write_unlock_bh(&ipt_account_lock);
+			write_unlock_bh(&table->table_lock);
 		}
 	}
 

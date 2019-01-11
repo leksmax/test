@@ -1,0 +1,38 @@
+<html>
+	<head>
+		<title>Limit Traffic</title>
+		<meta http-equiv="pragma" content="no-cache" />
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+		<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+		<meta http-equiv="X-UA-COMPATIBLE" content="IE=edge,chrome=1"/>
+	</head>
+
+	<body bgcolor=#000000>
+		
+		<form action="/redirect_html" method=POST name="limit_traffic" target="myiframe">
+			<input type="hidden" value="1" name="status">		
+		</form>
+		<iframe id="myiframe" name="myiframe" style="display:none;"></iframe> 
+		
+		<table width=100% border=0 cellpadding=0 cellspacing=0 height=50>
+			<tr><td width=100% bgcolor=#ff0000></td></tr>
+		</table>
+		<br><br><br><br><br><br><br><br>
+		<center>
+			<table>
+				<tr ><td align=center colspan=2>
+					<font color=#ffffff size=5><b>The traffic meter limit has been reached LIMIT_SIZE</b></font>
+				</td></tr>
+			</table>
+		</center>
+		<br><br><br><br><br><br><br><br><br><br>
+		<table width=100% border=0 cellpadding=0 cellspacing=0 height=50>
+			<tr><td width=100% bgcolor=#ff0000></td></tr>
+		</table>
+		<table>
+			<tr><td width=95%></td><td align=right><font color=#ffffff size=5><b>NETGEAR</b></font></td></tr>
+		</table>
+		<script>document.limit_traffic.submit();</script>
+	</body>
+</html>
