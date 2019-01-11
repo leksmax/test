@@ -109,7 +109,7 @@ int cgi_plugin_api_init()
         }   
 
         closedir(d);
-    }   
+    }
 
     return ret; 
 }

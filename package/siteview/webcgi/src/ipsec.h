@@ -4,8 +4,15 @@
 
 #define MAX_IPSEC_RULE 4
 
+struct ipsec_state {
+    int ipsec_nums;
+    struct list_head ipsec_rules;
+};
+
 /* ipsec策略基础配置 */
-typedef struct ipsec_policy {
+typedef struct _ipsec_rule {
+    struct list_head list;
+    int id;
     int enabled;
     char name[33];
     char mode[20];
@@ -32,7 +39,7 @@ typedef struct ipsec_policy {
     char ph2_proposal_4[32];
     char pfs[10];
     int salifetime;
-} ipsec_policy_t;
+} ipsec_rule_t;
 
 int get_ipsec_policy(cgi_request_t * req, cgi_response_t * resp);
 int ipsec_policy_config(cgi_request_t * req, cgi_response_t * resp);

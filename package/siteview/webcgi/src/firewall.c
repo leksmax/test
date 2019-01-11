@@ -186,13 +186,13 @@ void firewall_config_commit()
         return;
     }
 
-    /* ¶Ë¿Ú×ª·¢ÅäÖÃ */
+    /* ç«¯å£è½¬å‘é…ç½® */
     list_for_each_entry(pf, &fw.pf_rules, list)
     {
         _uci_firewall_add_forward(fp, pf);
     }
     
-    /* ¶Ë¿Ú´¥·¢ÅäÖÃ */
+    /* ç«¯å£è§¦å‘é…ç½® */
     list_for_each_entry(pt, &fw.pt_rules, list)
     {
         _uci_firewall_add_trigger(fp, pt);
@@ -300,7 +300,7 @@ int port_forward_add(cJSON *params)
     json_parse_vals((void *)&p, json_pf_vals, params);
 
     /*
-     * ÕâÀïĞèÒª¶Ô½âÎö³öÀ´µÄÊı¾İ×øÏÂ´¦Àí£¬Ìí¼ÓµÄÌõÄ¿ÓĞĞ§ĞÔ¼ì²é
+     * è¿™é‡Œéœ€è¦å¯¹è§£æå‡ºæ¥çš„æ•°æ®åä¸‹å¤„ç†ï¼Œæ·»åŠ çš„æ¡ç›®æœ‰æ•ˆæ€§æ£€æŸ¥
      */
     pf = (pf_rule_t *)malloc(sizeof(pf_rule_t));
     if (!pf)
@@ -471,7 +471,7 @@ int port_trigger_add(cJSON *params)
     json_parse_vals((void *)&p, json_pt_vals, params);
 
     /*
-     * ÕâÀïĞèÒª¶Ô½âÎö³öÀ´µÄÊı¾İ×øÏÂ´¦Àí£¬Ìí¼ÓµÄÌõÄ¿ÓĞĞ§ĞÔ¼ì²é
+     * è¿™é‡Œéœ€è¦å¯¹è§£æå‡ºæ¥çš„æ•°æ®åä¸‹å¤„ç†ï¼Œæ·»åŠ çš„æ¡ç›®æœ‰æ•ˆæ€§æ£€æŸ¥
      */
     pt = (pt_rule_t *)malloc(sizeof(pt_rule_t));
     if (!pt)

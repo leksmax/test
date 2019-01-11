@@ -178,8 +178,6 @@ int do_backup_config(cgi_request_t *req, cgi_response_t *resp)
     int nread = 0;
     int nwrite = 0;
 
-    cgi_debug("\n");
-
     /* 
      * 生成备份配置文件, 注意这里避免脚本输出任何数据导致cgi异常
      */
@@ -566,7 +564,7 @@ int set_syslog_config(cgi_request_t *req, cgi_response_t *resp)
         goto out;
     }
 
-    fork_exec(1, "/etc/init.d/syslog restart");
+    fork_exec(1, "/etc/init.d/log restart");
 
 out:
     webs_json_header(req->out);

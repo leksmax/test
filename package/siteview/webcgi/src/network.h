@@ -36,6 +36,16 @@
 #define DUALWAN_WEIGHT2     ("dualwan.global.weight2")
 
 enum {
+    WAN4_TYPE_NONE   = 0,
+    WAN4_TYPE_STATIC = 1,
+    WAN4_TYPE_DHCP   = 2,
+    WAN4_TYPE_PPPOE  = 3,
+    WAN4_TYPE_PPTP   = 4,
+    WAN4_TYPE_L2TP   = 5,
+    _WAN4_TYPE_MAX
+};
+
+enum {
     LAN1_UNIT = 1,
     LAN2_UNIT = 2,
     LAN3_UNIT = 3,
@@ -110,22 +120,6 @@ typedef struct {
     int weight2;
 } dualwan_cfg_t;
 
-typedef struct {
-    char name[33];
-    char interface[10];
-    char target[16];
-    char netmask[16];
-    char gateway[16];
-    int metric;
-} route_cfg_t;
-
-typedef struct {
-    int id;
-    char cfgname[10];
-    route_cfg_t route;
-    struct list_head list;
-} routeDb_t;
-
 int get_interface_lan(cgi_request_t * req, cgi_response_t * resp);
 int get_lan_config(cgi_request_t * req, cgi_response_t * resp);
 int set_lan_config(cgi_request_t * req, cgi_response_t * resp);
@@ -144,7 +138,6 @@ int set_dualwan_config(cgi_request_t * req, cgi_response_t * resp);
 int get_dualwan_status(cgi_request_t * req, cgi_response_t * resp);
 int dualwan_check_config(cgi_request_t * req, cgi_response_t * resp);
 
-int static_route_list(cgi_request_t * req, cgi_response_t * resp);
-int static_route_config(cgi_request_t * req, cgi_response_t * resp);
+
 
 #endif

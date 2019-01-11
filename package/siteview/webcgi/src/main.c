@@ -27,11 +27,13 @@
 #include "auth.h"
 #include "system.h"
 #include "network.h"
+#include "route.h"
 #include "wireless.h"
 #include "vlan.h"
 #include "ipsec.h"
 #include "firewall.h"
 #include "services.h"
+#include "status.h"
 #include "traffic_meter.h"
 
 int cgi_errno = CGI_ERR_OK;
@@ -51,7 +53,7 @@ static cgi_handler_t handlers[] = {
     /* status */
     { .url = "/get_port_status", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },  /* 端口状态，link，duplex，speed */
     { .url = "/get_system_status", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/attached_devices", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/get_attached_devices", .handler = get_attached_devices, .auth = PRIV_GUEST | PRIV_ADMIN },
     /* vlan */
     { .url = "/get_vlan_entry", .handler = get_vlan_entry, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/vlan_entry_config", .handler = vlan_entry_config, .auth = PRIV_ADMIN },
@@ -68,9 +70,9 @@ static cgi_handler_t handlers[] = {
     { .url = "/get_wan_config", .handler = get_wan_config, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/set_wan_config", .handler = set_wan_config, .auth = PRIV_ADMIN },
     /* dualwan */
-    { .url = "/get_dulwan_config", .handler = get_dualwan_config, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/set_dulwan_config", .handler = set_dualwan_config, .auth = PRIV_ADMIN },
-    { .url = "/get_dulwan_status", .handler = get_dualwan_status, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/get_dualwan_config", .handler = get_dualwan_config, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/set_dualwan_config", .handler = set_dualwan_config, .auth = PRIV_ADMIN },
+    { .url = "/get_dualwan_status", .handler = get_dualwan_status, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/dualwan_check_config", .handler = dualwan_check_config, .auth = PRIV_ADMIN },
     /* ipv6 */
     { .url = "/get_wan6_status", .handler = handle_common, .auth = PRIV_ADMIN },
@@ -86,11 +88,11 @@ static cgi_handler_t handlers[] = {
     /* route */
     { .url = "/static_route_list", .handler = static_route_list, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/static_route_config", .handler = static_route_config, .auth = PRIV_ADMIN },
-    { .url = "/get_policy_rules", .handler = handle_common, .auth = PRIV_GUEST | PRIV_ADMIN },
-    { .url = "/policy_rule_config", .handler = handle_common, .auth = PRIV_ADMIN },
+    { .url = "/get_policy_rules", .handler = policy_route_list, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/policy_rule_config", .handler = policy_route_config, .auth = PRIV_ADMIN },
     /* ipsec */
-    //{ .url = "/get_ipsec_policy", .handler = get_ipsec_policy, .auth = PRIV_GUEST | PRIV_ADMIN },
-    //{ .url = "/ipsec_policy_config", .handler = ipsec_policy_config, .auth = PRIV_ADMIN },
+    { .url = "/get_ipsec_policy", .handler = get_ipsec_policy, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/ipsec_policy_config", .handler = ipsec_policy_config, .auth = PRIV_ADMIN },
     /* ddns */
     { .url = "/get_ddns_services", .handler = get_ddns_services, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/get_ddns_config", .handler = get_ddns_config, .auth = PRIV_GUEST | PRIV_ADMIN },

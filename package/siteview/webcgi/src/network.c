@@ -24,31 +24,58 @@ const char *wan_names[_WAN_UNIT_MAX] = {
     "WAN2",
 };
 
+const char *wan4_modes[_WAN4_TYPE_MAX] = {
+    "none",
+    "static",
+    "dhcp",
+    "pppoe",
+    "pptp",
+    "l2tp",
+};
+
+const char *wan6_modes[_WAN6_TYPE_MAX] = {
+    "none",
+};
+
 char *config_get_wan(int unit, const char *name)
 {
     char wanx_param[128] = {0};
-    snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+    if (unit == WAN1_UNIT)
+        snprintf(wanx_param, sizeof(wanx_param), "network.wan.%s", name);
+    else
+        snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+
+    cgi_debug("%s\n", wanx_param);
     return config_get(wanx_param);
 }
 
 int config_get_wan_int(int unit, const char *name)
 {
     char wanx_param[128] = {0};
-    snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);    
+    if (unit == WAN1_UNIT)
+        snprintf(wanx_param, sizeof(wanx_param), "network.wan.%s", name);
+    else
+        snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
     return config_get_int(wanx_param);
 }
 
 int config_set_wan(int unit, const char *name, char *value)
 {
     char wanx_param[128] = {0};
-    snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+    if (unit == WAN1_UNIT)
+        snprintf(wanx_param, sizeof(wanx_param), "network.wan.%s", name);
+    else
+        snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
     return config_set(wanx_param, value);
 }
 
 int config_set_wan_int(int unit, const char *name, int value)
 {
     char wanx_param[128] = {0};
-    snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+    if (unit == WAN1_UNIT)
+        snprintf(wanx_param, sizeof(wanx_param), "network.wan.%s", name);
+    else
+        snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
     return config_set_int(wanx_param, value);    
 }
 
@@ -91,7 +118,7 @@ int get_lan_unit(char *name)
 
     for (unit = 1; unit < _LAN_UNIT_MAX; unit ++)
     {
-        if (strcmp(name, lan_names[unit]) != 0)
+        if (!strcmp(name, lan_names[unit]))
         {
             return unit;
         }
@@ -106,7 +133,7 @@ int get_wan_unit(char *name)
 
     for (unit = 1; unit < _WAN_UNIT_MAX; unit ++)
     {
-        if (strcmp(name, wan_names[unit]) != 0)
+        if (!strcmp(name, wan_names[unit]))
         {
             return unit;
         }
@@ -605,6 +632,14 @@ out:
     return ret;
 }
 
+int get_lan_status(cgi_request_t *req, cgi_response_t *resp)
+{
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+
+    return 0;
+}
+
 int set_lan_config(cgi_request_t *req, cgi_response_t *resp)
 {
     int ret = 0;
@@ -1014,250 +1049,4 @@ int get_interface_wan(cgi_request_t *req, cgi_response_t *resp)
     return 0;
 }
 
-#define ROUTE_API
 
-int route_num = 0;
-struct list_head routeDb;
-
-static void routeDb_add(int i, char *cfgname, route_cfg_t *route)
-{
-    routeDb_t *item;
-
-    item = (void *)malloc(sizeof(routeDb_t));
-    if (!item)
-    {
-        return;
-    }
-
-    memset(item, 0x0, sizeof(routeDb_t));
-    
-    item->id = i + 1;
-    strncpy(item->cfgname, cfgname, sizeof(item->cfgname) - 1);
-    memcpy(&item->route, route, sizeof(route_cfg_t));
-
-    INIT_LIST_HEAD(&item->list);
-    list_add_tail(&item->list, &routeDb);
-}
-
-static routeDb_t *routeDb_find(int id)
-{
-    routeDb_t *item = NULL;
-
-    list_for_each_entry(item, &routeDb, list)
-    {
-        if (item->id == id)
-        {
-            return item;
-        }
-    }
-
-    return NULL;
-}
-
-static void routeDb_del(routeDb_t *item)
-{
-    list_del(&item->list);
-    free(item);
-}
-
-int route_config_init()
-{
-    int i = 0;
-    route_cfg_t route;
-    
-    struct uci_context *ctx;
-    struct uci_package *pkg = NULL;
-    struct uci_element *e;
-
-    INIT_LIST_HEAD(&routeDb);
-
-    ctx = uci_alloc_context();
-    if (!ctx)
-    {
-        return -1;
-    }
-
-    uci_load(ctx, "network", &pkg);
-    if (!pkg) 
-    {
-        goto out;
-    }
-    
-    uci_foreach_element(&pkg->sections, e)
-    {  
-        struct uci_element *n;
-        struct uci_section *s = uci_to_section(e);
-
-        if (!strcmp(s->type, "route"))
-        {
-            memset(&route, 0x0, sizeof(route_cfg_t));
-            
-            uci_foreach_element(&s->options, n) 
-            {
-                struct uci_option *o = uci_to_option(n);
-                
-                if (o->type != UCI_TYPE_STRING)
-                {
-                    continue;
-                }
-                if (!strcmp(o->e.name, "name"))
-                {
-                    strncpy(route.name, o->v.string, sizeof(route.name) - 1);
-                }
-                else if (!strcmp(o->e.name, "interface"))
-                {
-                    strncpy(route.interface, o->v.string, sizeof(route.interface) - 1);
-                }
-                else if (!strcmp(o->e.name, "target"))
-                {
-                    strncpy(route.target, o->v.string, sizeof(route.target) - 1);
-                }
-                else if (!strcmp(o->e.name, "netmask"))
-                {
-                    strncpy(route.netmask, o->v.string, sizeof(route.netmask) - 1);
-                }
-                else if (!strcmp(o->e.name, "gateway"))
-                {
-                    strncpy(route.gateway, o->v.string, sizeof(route.gateway) - 1);
-                }
-                else if (!strcmp(o->e.name, "metric"))
-                {
-                    route.metric = atoi(o->v.string);
-                }
-            }
-            
-            routeDb_add(i, s->e.name, &route);
-            
-            i ++;
-        }
-    } 
-
-    route_num = i;
-
-    uci_unload(ctx, pkg);
-out:
-    uci_free_context(ctx);
-
-    return 0;
-}
-
-static void route_config_save()
-{
-    return 0;
-}
-
-static void route_config_free()
-{
-    routeDb_t *item, *tmp;
-
-    list_for_each_entry_safe(item, tmp, &routeDb, list)
-    {
-        routeDb_del(item);
-    }
-}
-
-int static_route_list(cgi_request_t *req, cgi_response_t *resp)
-{
-    int i = 0;
-    int ret = 0;
-    route_cfg_t *route;
-    routeDb_t *item = NULL;
-    
-    ret = route_config_init();
-    if (ret < 0)
-    {
-        cgi_errno = CGI_ERR_CFG_FILE;
-        goto out;
-    }
-
-    webs_json_header(req->out);
-    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
-    webs_write(req->out, "\"num\":%d,", route_num);
-    webs_write(req->out, "\"rules\":[", route_num);
-
-    list_for_each_entry(item, &routeDb, list) {
-        route = &item->route;
-        webs_write(req->out, "%s{\"id\":%d,\"name\":\"%s\",\"interface\":\"%s\",\"target\":\"%s\","
-            "\"netmask\":\"%s\",\"gateway\":\"%s\",\"metric\":%d}", (i > 0) ? "," : "", item->id, route->name, route->interface, 
-            route->target, route->netmask, route->gateway, route->metric);
-        i ++;
-    }
-
-    webs_write(req->out, "]}}");
-    
-out:
-    if (cgi_errno != CGI_ERR_OK)
-    {
-        webs_json_header(req->out);
-        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);    
-    }
-    
-    route_config_free();
-    
-    return 0;
-}
-
-int static_route_add(cJSON *params)
-{
-    route_cfg_t route;
-    
-    memset(&route, 0x0, sizeof(route_cfg_t));
-    
-    return 0;
-}
-
-int static_route_edit(cJSON *params)
-{
-    return 0;
-}
-
-int static_route_del(cJSON *params)
-{
-    return 0;
-}
-
-int static_route_config(cgi_request_t *req, cgi_response_t *resp)
-{
-    int ret = 0;
-    int method = 0;
-    cJSON *params = NULL;
-
-    ret = param_init(req->post_data, &method, &params);
-    if (ret < 0)
-    {   
-        cgi_errno = CGI_ERR_PARAM;
-        goto out;
-    }
-
-    ret = route_config_init();
-    if (ret < 0)
-    {
-        cgi_errno = CGI_ERR_CFG_FILE;
-        goto out;
-    }
-    
-    switch(method)
-    {
-        case CGI_ADD:
-            ret = static_route_add(params);
-            break;
-        case CGI_SET:
-            ret = static_route_edit(params);
-            break;
-        case CGI_DEL:
-            ret = static_route_del(params);
-            break;
-        default:
-            cgi_errno = CGI_ERR_NOT_FOUND;
-            break;
-    }
-
-out:
-    param_free();
-    route_config_free();
-
-    webs_json_header(req->out);
-    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
-    
-    return 0;
-}

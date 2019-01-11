@@ -1,7 +1,7 @@
 
 TARGET  := web-cgi
 SOURCES := main.c session.c servlet.c plugin.c upload.c option.c utils.c cjson.c
-SOURCES += auth.c network.c wireless.c vlan.c firewall.c system.c services.c traffic_meter.c
+SOURCES += auth.c vlan.c network.c ipsec.c route.c  wireless.c firewall.c system.c services.c status.c traffic_meter.c
 OBJS    := $(SOURCES:.c=.o)
 
 LDFLAGS += -lm -luci -ldl
