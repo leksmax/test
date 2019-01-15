@@ -2,6 +2,11 @@
 #ifndef __SERVICES_H_
 #define __SERVICES_H_
 
+#define UPNPD_RULE_DATA_FILE		("/etc/upnp/data")
+#define UPNPD_RULE_DATA_SAVE		("/etc/upnp/save")
+#define UPNPD_RULE_DATE_DEL			("/etc/upnp/delete")
+#define MAX_UPNP_RULES_NUM			20
+
 enum {
     DYN_DDNS = 1,
     NOIP_DDNS = 2,
@@ -38,6 +43,7 @@ typedef struct {
 } upnp_cfg_t;
 
 typedef struct {
+	int status;
     int in_port;
     int ext_port;
     char proto[10];

@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 
 #include "webcgi.h"
@@ -216,121 +217,157 @@ out:
 
 #define UPNPD_API
 
+void save_upnp_rules_data()
+{
+	char cmdbuf[128] = {0};
+	if(access(UPNPD_RULE_DATA_SAVE, F_OK) == -1)
+	{
+		snprintf(cmdbuf, sizeof(cmdbuf), "touch %s;killall -USR2 miniupnpd", UPNPD_RULE_DATA_SAVE);
+	}
+	else
+	{
+		snprintf(cmdbuf, sizeof(cmdbuf), "killall -USR2 miniupnpd");
+	}
+	system(cmdbuf);
+}
+
+void delete_upnp_rules_data(char *databuf)
+{
+	char cmdbuf[2048] = {0};
+	if(access(UPNPD_RULE_DATE_DEL, F_OK) == -1)
+	{
+		snprintf(cmdbuf, sizeof(cmdbuf), "echo -e \"%s\" > %s;killall -USR2 miniupnpd", databuf, UPNPD_RULE_DATE_DEL);
+	}
+	else
+	{
+		snprintf(cmdbuf, sizeof(cmdbuf), "killall -USR2 miniupnpd");
+	}
+	system(cmdbuf);
+}
+
+int libgw_get_upnp_rules(upnp_rule_t *upnp)
+{
+	FILE *fp = NULL;
+	int matchs = 0, i = 0;
+	int enabled = 0, eport = 0, iport = 0, timestamp = 0;
+	char protocol[10] = {0}, ipaddr[16]={0}, desc[64] = {0};
+	char line[1024] = {0};
+	
+	save_upnp_rules_data();
+
+	fp = fopen(UPNPD_RULE_DATA_FILE, "r");
+	if(fp != NULL)
+	{
+		while(fgets(line, sizeof(line), fp))
+		{
+			matchs = sscanf(line, "%d:%[^:]:%d:%[^:]:%d:%d:%s", &enabled, protocol,
+				&eport, ipaddr, &iport, &timestamp, desc);
+
+			if(matchs != 7)
+				continue;
+			
+			upnp[i].status = enabled;
+			upnp[i].ext_port = eport;
+			upnp[i].in_port = iport;
+			
+			strncpy(upnp[i].in_ip4addr, ipaddr, sizeof(upnp[i].in_ip4addr));
+			strncpy(upnp[i].proto, protocol, sizeof(upnp[i].proto));
+			strncpy(upnp[i].name, desc, sizeof(upnp[i].name));
+
+			i++;
+		}
+		fclose(fp);
+	}
+
+	return i;
+}
+
 int get_upnpd_rules(cgi_request_t *req, cgi_response_t *resp)
 {
-#if 0
-    int ret = -1, i = 0, arr_size = 0;
-    cJSON *pRoot = NULL, *arr = NULL; 
-    char cmdbuf[128] = {0};
+	int i = 0, num = 0;
 
-    pRoot = cJSON_Parse(data);
-    if(NULL == pRoot)
-    {
-        cgi_errno = CGI_ERR_PARAM;
-        goto cleanup;
-    }
+	upnp_rule_t upnp[MAX_UPNP_RULES_NUM];
 
-    arr = cJSON_GetObjectItem(pRoot, "nums");
-    if(NULL == arr)
-    {
-        cgi_errno = CGI_ERR_CFG_PARAM;
-        goto cleanup;
-    }
+	for(i = 0; i < MAX_UPNP_RULES_NUM; i++)
+	{
+		memset(&upnp[i], 0x0, sizeof(upnp_rule_t));
+	}
+	
+	num = libgw_get_upnp_rules(upnp);
 
-    arr_size = cJSON_GetArraySize(arr);
-    for(i = 0; i < arr_size; i ++)
-    { 
-        cJSON *pSub = cJSON_GetArrayItem(arr, i);
-        if(NULL != pSub)
-        {
-            snprintf(cmdbuf, sizeof(cmdbuf), "iptables -t nat -D MINIUPNPD %d", pSub->valueint - i);
-            system(cmdbuf);
-            snprintf(cmdbuf, sizeof(cmdbuf), "iptables -t filter -D MINIUPNPD %d", pSub->valueint - i);
-            system(cmdbuf);
-        }
-    }
-    
-cleanup:
-    if(0 == cgi_errno)
-    {
-        ret = 0;
-    }
-    
-    webs_write(stdout, "{\"code\":%d,\"data\":{}}", cgi_errno);
-    if(pRoot) cJSON_Delete(pRoot);
-#endif
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{\"num\":%d, \"rules\":[", cgi_errno, num);
+	for(i = 0; i < num; i++)
+	{
+		if((i + 1) == num)
+			webs_write(req->out, "{\"id\":%d, \"status\":%d, \"internalPort\":%d, \"externalPort\":%d, "
+									"\"protocol\":\"%s\", \"internalClient\":\"%s\", \"name\":\"%s\"}",
+								i + 1, upnp[i].status, upnp[i].in_port, upnp[i].ext_port, upnp[i].proto,
+								upnp[i].in_ip4addr, upnp[i].name);
+		else
+			webs_write(req->out, "{\"id\":%d, \"status\":%d, \"internalPort\":%d, \"externalPort\":%d, "
+								"\"protocol\":\"%s\", \"internalClient\":\"%s\", \"name\":\"%s\"},",
+							i + 1, upnp[i].status, upnp[i].in_port, upnp[i].ext_port, upnp[i].proto,
+							upnp[i].in_ip4addr, upnp[i].name);
+	}
 
-    return 0;
+	webs_write(req->out, "]}}");
+
+	return 0;
 }
 
 int del_upnpd_rules(cgi_request_t *req, cgi_response_t *resp)
 {
-#if 0
-    int i = 0, num = 0, ret = -1;
-    char *outData = NULL;
-    cJSON *pRoot = NULL, *item = NULL, *arr = NULL; 
-    struct upnpd_rules upnp[MAX_UPNP_RULES_NUM];
+	int ret = CGI_ERR_OK, i = 0, num = 0, len = 0;
+	int method = 0, arr_size = 0;		
+	char databuf[1024] = {0};
+	upnp_rule_t upnp[MAX_UPNP_RULES_NUM];
+    cJSON *params = NULL, *arr = NULL;
+	
+	for(i = 0; i < MAX_UPNP_RULES_NUM; i++)
+	{
+		memset(&upnp[i], 0x0, sizeof(upnp_rule_t));
+	}
+	
+	ret = param_init(req->post_data, &method, &params);
+	if (ret < 0)
+	{
+		cgi_errno = CGI_ERR_PARAM;
+		goto out;
+	}
+	
+	arr = cJSON_GetObjectItem(params, "nums");
+	if(NULL == arr)
+	{
+		cgi_errno = CGI_ERR_CFG_PARAM;
+		goto out;
+	}
 
-    pRoot = cJSON_CreateObject();
-    arr = cJSON_CreateArray();
-    if(NULL == pRoot || NULL == arr)
-    {
-        cgi_errno = 222;
-        goto cleanup;
-    }
+	num = libgw_get_upnp_rules(upnp);
+	arr_size = cJSON_GetArraySize(arr);
+	for(i = 0; i < arr_size; i ++)
+	{ 
+		cJSON *pSub = cJSON_GetArrayItem(arr, i);
+		if(pSub != NULL)
+		{
+			if(pSub->valueint < num + 1)
+			{
+				len += snprintf(databuf+len, sizeof(databuf) - len, "%s %d\n", upnp[pSub->valueint - 1].proto, upnp[pSub->valueint - 1].ext_port);
+			}
+		}
+	}
+	
+	if(strlen(databuf) != 0)
+		delete_upnp_rules_data(databuf);
+	
+out:
 
-    for(i = 0; i < MAX_UPNP_RULES_NUM; i++)
-    {
-        memset(&upnp[i], 0x0, sizeof(struct upnpd_rules));
-    }
-    
-    num = read_upnpd_rules(upnp);
+	param_free();
+	
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
 
-    for(i = 0; i < num; i++)
-    {
-        item = cJSON_CreateObject();
-        if(NULL == item)
-        {
-            cgi_errno = 222;
-            cgi_log_error("create object failed!\n");
-            goto cleanup;
-        }
-        cJSON_AddNumberToObject(item, "num", upnp[i].num);
-        cJSON_AddNumberToObject(item, "internalPort", upnp[i].inport);
-        cJSON_AddNumberToObject(item, "externalPort", upnp[i].outport);
-        cJSON_AddStringToObject(item, "protocol", upnp[i].protocol);
-        //cJSON_AddStringToObject(item, "interface", upnp[i].interface);
-        cJSON_AddStringToObject(item, "internalClient", upnp[i].ipaddr);
-
-        cJSON_AddItemToArray(arr, item);
-    }
-    cJSON_AddNumberToObject(pRoot, "code", cgi_errno);
-    cJSON_AddItemToObject(pRoot, "data", arr);
-
-    outData = cJSON_PrintUnformatted(pRoot);
-    if(NULL == outData)
-    {
-        cgi_errno = 101;
-        cgi_log_error("unformat data failed!\n");
-        goto cleanup;
-    }
-    
-cleanup:
-
-    if(0 == cgi_errno)
-    {
-        ret = 0;
-        webs_write(stdout, "%s", outData);
-    }
-    else
-    {
-        webs_write(stdout, "{\"code\":%d,\"data\":{}}", cgi_errno);
-    }
-    
-    if(outData) free(outData);
-    if(pRoot) cJSON_Delete(pRoot);
-#endif
-    return 0;
+	return ret;
 }
 
 int get_upnpd_config(cgi_request_t *req, cgi_response_t *resp)
@@ -394,7 +431,11 @@ int set_upnpd_config(cgi_request_t *req, cgi_response_t *resp)
         goto out;
     }
 
-    //fork_exec(1, "/etc/init.d/miniupnpd restart");
+	if(cfg.enabled == 0)
+	{
+		unlink(UPNPD_RULE_DATA_FILE);
+	}
+    fork_exec(1, "/etc/init.d/miniupnpd restart");
     
 out:
     param_free();

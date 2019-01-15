@@ -1,0 +1,1145 @@
+Index: miniupnpd-1.9.20150609/Makefile
+===================================================================
+--- miniupnpd-1.9.20150609.orig/Makefile
++++ miniupnpd-1.9.20150609/Makefile
+@@ -101,7 +101,7 @@ STDOBJS = miniupnpd.o upnphttp.o upnpdes
+           upnpredirect.o getifaddr.o daemonize.o upnpglobalvars.o \
+           options.o upnppermissions.o minissdp.o natpmp.o pcpserver.o \
+           upnpevents.o upnputils.o getconnstatus.o \
+-          upnppinhole.o asyncsendto.o portinuse.o
++          upnppinhole.o asyncsendto.o portinuse.o upnpdatalist.o
+ BSDOBJS = bsd/getifstats.o bsd/ifacewatcher.o bsd/getroute.o
+ SUNOSOBJS = solaris/getifstats.o bsd/ifacewatcher.o bsd/getroute.o
+ MACOBJS = mac/getifstats.o bsd/ifacewatcher.o bsd/getroute.o
+Index: miniupnpd-1.9.20150609/Makefile.linux
+===================================================================
+--- miniupnpd-1.9.20150609.orig/Makefile.linux
++++ miniupnpd-1.9.20150609/Makefile.linux
+@@ -48,7 +48,7 @@ BASEOBJS = miniupnpd.o upnphttp.o upnpde
+            upnpredirect.o getifaddr.o daemonize.o upnpglobalvars.o \
+            options.o upnppermissions.o minissdp.o natpmp.o pcpserver.o \
+            upnpevents.o upnputils.o getconnstatus.o \
+-           upnppinhole.o pcplearndscp.o asyncsendto.o
++           upnppinhole.o pcplearndscp.o asyncsendto.o upnpdatalist.o
+ 
+ LNXOBJS = linux/getifstats.o linux/ifacewatcher.o linux/getroute.o
+ NETFILTEROBJS = netfilter/iptcrdr.o netfilter/iptpinhole.o netfilter/nfct_get.o
+Index: miniupnpd-1.9.20150609/miniupnpd.c
+===================================================================
+--- miniupnpd-1.9.20150609.orig/miniupnpd.c
++++ miniupnpd-1.9.20150609/miniupnpd.c
+@@ -122,7 +122,26 @@ sigusr2(int sig)
+ {
+ 	gotusr2 = 1;
+ }
++static void
++tomato_helper(void)
++{
++	struct stat st;
++			
++	if (stat(UPNP_DATA_DEL_PATHTILE, &st) == 0)
++	{
++		delete_data_from_file();
++		unlink(UPNP_DATA_DEL_PATHTILE);
++	}
+ 
++	if (stat(UPNP_DATA_SAVE_PATHFILE, &st) == 0)
++	{
++		write_date_to_file(UPNP_DATA_LIST_PATHFILE);
++		unlink(UPNP_DATA_SAVE_PATHFILE);
++	}
++	return ;
++}
++
++#else
+ static void
+ tomato_save(const char *fname)
+ {
+@@ -1676,7 +1695,7 @@ init(int argc, char * * argv, struct run
+ #endif
+ 
+ #ifdef TOMATO
+-	tomato_load();
++	init_upnpd_list_data();
+ #endif /* TOMATO */
+ 
+ 	return 0;
+@@ -2565,7 +2584,8 @@ shutdown:
+ 	finalize_sendto();
+ 
+ #ifdef TOMATO
+-	tomato_save("/etc/upnp/data");
++	write_date_to_file(UPNP_DATA_LIST_PATHFILE);
++	destory_upnpd_list();
+ #endif	/* TOMATO */
+ 	/* close out open sockets */
+ 	while(upnphttphead.lh_first != NULL)
+Index: miniupnpd-1.9.20150609/upnpredirect.c
+===================================================================
+--- miniupnpd-1.9.20150609.orig/upnpredirect.c
++++ miniupnpd-1.9.20150609/upnpredirect.c
+@@ -231,7 +231,7 @@ int reload_from_lease_file()
+ 			leaseduration = 0;	/* default value */
+ 		}
+ 		rhost = NULL;
+-		r = upnp_redirect(rhost, eport, iaddr, iport, proto, desc, leaseduration);
++		r = upnp_redirect(1, rhost, eport, iaddr, iport, proto, desc, leaseduration);
+ 		if(r == -1) {
+ 			syslog(LOG_ERR, "Failed to redirect %hu -> %s:%hu protocol %s",
+ 			       eport, iaddr, iport, proto);
+@@ -256,7 +256,7 @@ int reload_from_lease_file()
+  *          -3 permission check failed
+  */
+ int
+-upnp_redirect(const char * rhost, unsigned short eport,
++upnp_redirect(unsigned int enable, const char * rhost, unsigned short eport,
+               const char * iaddr, unsigned short iport,
+               const char * protocol, const char * desc,
+               unsigned int leaseduration)
+@@ -284,16 +284,26 @@ upnp_redirect(const char * rhost, unsign
+ 	                      0, 0,
+ 	                      &timestamp, 0, 0);
+ 	if(r == 0) {
+-		/* if existing redirect rule matches redirect request return success
+-		 * xbox 360 does not keep track of the port it redirects and will
+-		 * redirect another port when receiving ConflictInMappingEntry */
+-		if(strcmp(iaddr, iaddr_old)==0 && iport==iport_old) {
+-			syslog(LOG_INFO, "ignoring redirect request as it matches existing redirect");
+-		} else {
+-
+-			syslog(LOG_INFO, "port %hu protocol %s already redirected to %s:%hu",
+-				eport, protocol, iaddr_old, iport_old);
+-			return -2;
++		if(enable == 1)
++		{
++			/* if existing redirect rule matches redirect request return success
++			* xbox 360 does not keep track of the port it redirects and will
++			* redirect another port when receiving ConflictInMappingEntry */
++			if(strcmp(iaddr, iaddr_old)==0 && iport==iport_old) {
++				syslog(LOG_INFO, "ignoring redirect request as it matches existing redirect");
++			} else {
++
++				syslog(LOG_INFO, "port %hu protocol %s already redirected to %s:%hu",
++					eport, protocol, iaddr_old, iport_old);
++				return -2;
++			}
++		}
++		else
++		{
++#ifdef TOMATO
++			add_and_update_upnpd_list_info(enable, eport, iaddr, iport, protocol, desc, timestamp);
++#endif
++			upnp_delete_redirection(eport, protocol);
+ 		}
+ #ifdef CHECK_PORTINUSE
+ 	} else if (port_in_use(ext_if_name, eport, proto, iaddr, iport) > 0) {
+@@ -305,7 +315,11 @@ upnp_redirect(const char * rhost, unsign
+ 		timestamp = (leaseduration > 0) ? time(NULL) + leaseduration : 0;
+ 		syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",
+ 			eport, iaddr, iport, protocol, desc);
+-		return upnp_redirect_internal(rhost, eport, iaddr, iport, proto,
++#ifdef TOMATO		
++		add_and_update_upnpd_list_info(enable, eport, iaddr, iport, protocol, desc, timestamp);
++#endif
++		if(enable == 1)
++			return upnp_redirect_internal(rhost, eport, iaddr, iport, proto,
+ 		                              desc, timestamp);
+ 	}
+ 
+Index: miniupnpd-1.9.20150609/upnpredirect.h
+===================================================================
+--- miniupnpd-1.9.20150609.orig/upnpredirect.h
++++ miniupnpd-1.9.20150609/upnpredirect.h
+@@ -12,6 +12,7 @@
+ #include <sys/types.h>
+ 
+ #include "config.h"
++#include "upnpdatalist.h"
+ 
+ #ifdef ENABLE_LEASEFILE
+ int reload_from_lease_file(void);
+@@ -26,7 +27,7 @@ int reload_from_lease_file(void);
+  *          -3 permission check failed
+  */
+ int
+-upnp_redirect(const char * rhost, unsigned short eport,
++upnp_redirect(unsigned int enable, const char * rhost, unsigned short eport,
+               const char * iaddr, unsigned short iport,
+               const char * protocol, const char * desc,
+               unsigned int leaseduration);
+Index: miniupnpd-1.9.20150609/upnpsoap.c
+===================================================================
+--- miniupnpd-1.9.20150609.orig/upnpsoap.c
++++ miniupnpd-1.9.20150609/upnpsoap.c
+@@ -316,7 +316,9 @@ AddPortMapping(struct upnphttp * h, cons
+ 	char * leaseduration_str;
+ 	unsigned int leaseduration;
+ 	char * r_host;
++	char *newEnabled;
+ 	unsigned short iport, eport;
++	unsigned int enable;
+ 
+ 	struct hostent *hp; /* getbyhostname() */
+ 	char ** ptr; /* getbyhostname() */
+@@ -386,6 +388,7 @@ AddPortMapping(struct upnphttp * h, cons
+ 	protocol = GetValueFromNameValueList(&data, "NewProtocol");
+ 	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
+ 	leaseduration_str = GetValueFromNameValueList(&data, "NewLeaseDuration");
++	newEnabled = GetValueFromNameValueList(&data, "NewEnabled");
+ 
+ 	if (!int_port || !ext_port || !protocol)
+ 	{
+@@ -396,6 +399,7 @@ AddPortMapping(struct upnphttp * h, cons
+ 
+ 	eport = (unsigned short)atoi(ext_port);
+ 	iport = (unsigned short)atoi(int_port);
++	enable = (unsigned int)atoi(newEnabled);
+ 
+ 	leaseduration = leaseduration_str ? atoi(leaseduration_str) : 0;
+ #ifdef IGD_V2
+@@ -423,7 +427,7 @@ AddPortMapping(struct upnphttp * h, cons
+ 	PortMappingDescription, PortMappingEnabled and PortMappingLeaseDuration are
+ 	overwritten.
+ 	*/
+-	r = upnp_redirect(r_host, eport, int_ip, iport, protocol, desc, leaseduration);
++	r = upnp_redirect(enable, r_host, eport, int_ip, iport, protocol, desc, leaseduration);
+ 
+ 	ClearNameValueList(&data);
+ 
+@@ -478,7 +482,9 @@ AddAnyPortMapping(struct upnphttp * h, c
+ 	struct NameValueParserData data;
+ 	const char * int_ip, * int_port, * ext_port, * protocol, * desc;
+ 	const char * r_host;
++	const char * newEnabled;
+ 	unsigned short iport, eport;
++	unsigned int enable;
+ 	const char * leaseduration_str;
+ 	unsigned int leaseduration;
+ 
+@@ -495,6 +501,7 @@ AddAnyPortMapping(struct upnphttp * h, c
+ 	/* NewEnabled */
+ 	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
+ 	leaseduration_str = GetValueFromNameValueList(&data, "NewLeaseDuration");
++	newEnabled = GetValueFromNameValueList(&data, "newEnabled");
+ 
+ 	leaseduration = leaseduration_str ? atoi(leaseduration_str) : 0;
+ 	if(leaseduration == 0)
+@@ -509,6 +516,7 @@ AddAnyPortMapping(struct upnphttp * h, c
+ 
+ 	eport = (unsigned short)atoi(ext_port);
+ 	iport = (unsigned short)atoi(int_port);
++	enable = (unsigned int)atoi(newEnabled);
+ #ifndef SUPPORT_REMOTEHOST
+ #ifdef UPNP_STRICT
+ 	if (r_host && (strlen(r_host) > 0) && (0 != strcmp(r_host, "*")))
+@@ -559,7 +567,7 @@ AddAnyPortMapping(struct upnphttp * h, c
+ 	/* TODO : accept a different external port
+ 	 * have some smart strategy to choose the port */
+ 	for(;;) {
+-		r = upnp_redirect(r_host, eport, int_ip, iport, protocol, desc, leaseduration);
++		r = upnp_redirect(enable, r_host, eport, int_ip, iport, protocol, desc, leaseduration);
+ 		if(r==-2 && eport < 65535) {
+ 			eport++;
+ 		} else {
+Index: miniupnpd-1.9.20150609/list.h
+===================================================================
+--- /dev/null
++++ miniupnpd-1.9.20150609/list.h
+@@ -0,0 +1,544 @@
++/**
++ * 
++ * I grub it from linux kernel source code and fix it for user space
++ * program. Of course, this is a GPL licensed header file.
++ *
++ * Here is a recipe to cook list.h for user space program
++ *
++ * 1. copy list.h from linux/include/list.h
++ * 2. remove 
++ *     - #ifdef __KERNE__ and its #endif
++ *     - all #include line
++ *     - prefetch() and rcu related functions
++ * 3. add macro offsetof() and container_of
++ *
++ * - kazutomo@mcs.anl.gov
++ */
++#ifndef _LINUX_LIST_H
++#define _LINUX_LIST_H
++
++/**
++ * @name from other kernel headers
++ */
++/*@{*/
++
++/**
++ * Get offset of a member
++ */
++#ifndef offsetof
++#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
++#endif
++
++/**
++ * Casts a member of a structure out to the containing structure
++ * @param ptr        the pointer to the member.
++ * @param type       the type of the container struct this is embedded in.
++ * @param member     the name of the member within the struct.
++ *
++ */
++#ifndef container_of
++#define container_of(ptr, type, member) ({                      \
++        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
++        (type *)( (char *)__mptr - offsetof(type,member) );})
++#endif
++/*@}*/
++
++#define prefetch(x)		1
++
++/*
++ * These are non-NULL pointers that will result in page faults
++ * under normal circumstances, used to verify that nobody uses
++ * non-initialized list entries.
++ */
++#if 0
++#define LIST_POISON1  ((void *) 0x00100100)
++#define LIST_POISON2  ((void *) 0x00200200)
++#else
++#define LIST_POISON1  NULL
++#define LIST_POISON2  NULL
++#endif
++/**
++ * Simple doubly linked list implementation.
++ *
++ * Some of the internal functions ("__xxx") are useful when
++ * manipulating whole lists rather than single entries, as
++ * sometimes we already know the next/prev entries and we can
++ * generate better code by using them directly rather than
++ * using the generic single-entry routines.
++ */
++
++struct list_head {
++	struct list_head *next, *prev;
++};
++
++#define LIST_HEAD_INIT(name) { &(name), &(name) }
++
++#ifndef LIST_HEAD
++#define LIST_HEAD(name) \
++	struct list_head name = LIST_HEAD_INIT(name)
++#endif
++
++#define INIT_LIST_HEAD(ptr) do { \
++	(ptr)->next = (ptr); (ptr)->prev = (ptr); \
++} while (0)
++
++/*
++ * Insert a new entry between two known consecutive entries.
++ *
++ * This is only for internal list manipulation where we know
++ * the prev/next entries already!
++ */
++static inline void __list_add(struct list_head *new,
++			      struct list_head *prev,
++			      struct list_head *next)
++{
++	next->prev = new;
++	new->next = next;
++	new->prev = prev;
++	prev->next = new;
++}
++
++/**
++ * list_add - add a new entry
++ * @new: new entry to be added
++ * @head: list head to add it after
++ *
++ * Insert a new entry after the specified head.
++ * This is good for implementing stacks.
++ */
++static inline void list_add(struct list_head *new, struct list_head *head)
++{
++	__list_add(new, head, head->next);
++}
++
++/**
++ * list_add_tail - add a new entry
++ * @new: new entry to be added
++ * @head: list head to add it before
++ *
++ * Insert a new entry before the specified head.
++ * This is useful for implementing queues.
++ */
++static inline void list_add_tail(struct list_head *new, struct list_head *head)
++{
++	__list_add(new, head->prev, head);
++}
++
++
++/*
++ * Delete a list entry by making the prev/next entries
++ * point to each other.
++ *
++ * This is only for internal list manipulation where we know
++ * the prev/next entries already!
++ */
++static inline void __list_del(struct list_head * prev, struct list_head * next)
++{
++	next->prev = prev;
++	prev->next = next;
++}
++
++/**
++ * list_del - deletes entry from list.
++ * @entry: the element to delete from the list.
++ * Note: list_empty on entry does not return true after this, the entry is
++ * in an undefined state.
++ */
++static inline void list_del(struct list_head *entry)
++{
++	__list_del(entry->prev, entry->next);
++	entry->next = LIST_POISON1;
++	entry->prev = LIST_POISON2;
++}
++
++
++
++/**
++ * list_del_init - deletes entry from list and reinitialize it.
++ * @entry: the element to delete from the list.
++ */
++static inline void list_del_init(struct list_head *entry)
++{
++	__list_del(entry->prev, entry->next);
++	INIT_LIST_HEAD(entry);
++}
++
++/**
++ * list_move - delete from one list and add as another's head
++ * @list: the entry to move
++ * @head: the head that will precede our entry
++ */
++static inline void list_move(struct list_head *list, struct list_head *head)
++{
++        __list_del(list->prev, list->next);
++        list_add(list, head);
++}
++
++/**
++ * list_move_tail - delete from one list and add as another's tail
++ * @list: the entry to move
++ * @head: the head that will follow our entry
++ */
++static inline void list_move_tail(struct list_head *list,
++				  struct list_head *head)
++{
++        __list_del(list->prev, list->next);
++        list_add_tail(list, head);
++}
++
++/**
++ * list_empty - tests whether a list is empty
++ * @head: the list to test.
++ */
++static inline int list_empty(const struct list_head *head)
++{
++	return head->next == head;
++}
++
++static inline void __list_splice(struct list_head *list,
++				 struct list_head *head)
++{
++	struct list_head *first = list->next;
++	struct list_head *last = list->prev;
++	struct list_head *at = head->next;
++
++	first->prev = head;
++	head->next = first;
++
++	last->next = at;
++	at->prev = last;
++}
++
++/**
++ * list_splice - join two lists
++ * @list: the new list to add.
++ * @head: the place to add it in the first list.
++ */
++static inline void list_splice(struct list_head *list, struct list_head *head)
++{
++	if (!list_empty(list))
++		__list_splice(list, head);
++}
++
++/**
++ * list_splice_init - join two lists and reinitialise the emptied list.
++ * @list: the new list to add.
++ * @head: the place to add it in the first list.
++ *
++ * The list at @list is reinitialised
++ */
++static inline void list_splice_init(struct list_head *list,
++				    struct list_head *head)
++{
++	if (!list_empty(list)) {
++		__list_splice(list, head);
++		INIT_LIST_HEAD(list);
++	}
++}
++
++/**
++ * list_entry - get the struct for this entry
++ * @ptr:	the &struct list_head pointer.
++ * @type:	the type of the struct this is embedded in.
++ * @member:	the name of the list_struct within the struct.
++ */
++#define list_entry(ptr, type, member) \
++	container_of(ptr, type, member)
++
++/**
++ * list_for_each	-	iterate over a list
++ * @pos:	the &struct list_head to use as a loop counter.
++ * @head:	the head for your list.
++ */
++
++#define list_for_each(pos, head) \
++  for (pos = (head)->next; pos != (head);	\
++       pos = pos->next)
++
++/**
++ * __list_for_each	-	iterate over a list
++ * @pos:	the &struct list_head to use as a loop counter.
++ * @head:	the head for your list.
++ *
++ * This variant differs from list_for_each() in that it's the
++ * simplest possible list iteration code, no prefetching is done.
++ * Use this for code that knows the list to be very short (empty
++ * or 1 entry) most of the time.
++ */
++#define __list_for_each(pos, head) \
++	for (pos = (head)->next; pos != (head); pos = pos->next)
++
++/**
++ * list_for_each_prev	-	iterate over a list backwards
++ * @pos:	the &struct list_head to use as a loop counter.
++ * @head:	the head for your list.
++ */
++#define list_for_each_prev(pos, head) \
++	for (pos = (head)->prev; prefetch(pos->prev), pos != (head); \
++        	pos = pos->prev)
++
++/**
++ * list_for_each_safe	-	iterate over a list safe against removal of list entry
++ * @pos:	the &struct list_head to use as a loop counter.
++ * @n:		another &struct list_head to use as temporary storage
++ * @head:	the head for your list.
++ */
++#define list_for_each_safe(pos, n, head) \
++	for (pos = (head)->next, n = pos->next; pos != (head); \
++		pos = n, n = pos->next)
++
++/**
++ * list_for_each_entry	-	iterate over list of given type
++ * @pos:	the type * to use as a loop counter.
++ * @head:	the head for your list.
++ * @member:	the name of the list_struct within the struct.
++ */
++#define list_for_each_entry(pos, head, member)				\
++	for (pos = list_entry((head)->next, typeof(*pos), member);	\
++	     &pos->member != (head);					\
++	     pos = list_entry(pos->member.next, typeof(*pos), member))
++
++/**
++ * list_for_each_entry_reverse - iterate backwards over list of given type.
++ * @pos:	the type * to use as a loop counter.
++ * @head:	the head for your list.
++ * @member:	the name of the list_struct within the struct.
++ */
++#define list_for_each_entry_reverse(pos, head, member)			\
++	for (pos = list_entry((head)->prev, typeof(*pos), member);	\
++	     &pos->member != (head); 	\
++	     pos = list_entry(pos->member.prev, typeof(*pos), member))
++
++/**
++ * list_prepare_entry - prepare a pos entry for use as a start point in
++ *			list_for_each_entry_continue
++ * @pos:	the type * to use as a start point
++ * @head:	the head of the list
++ * @member:	the name of the list_struct within the struct.
++ */
++#define list_prepare_entry(pos, head, member) \
++	((pos) ? : list_entry(head, typeof(*pos), member))
++
++/**
++ * list_for_each_entry_continue -	iterate over list of given type
++ *			continuing after existing point
++ * @pos:	the type * to use as a loop counter.
++ * @head:	the head for your list.
++ * @member:	the name of the list_struct within the struct.
++ */
++#define list_for_each_entry_continue(pos, head, member) 		\
++	for (pos = list_entry(pos->member.next, typeof(*pos), member);	\
++	     &pos->member != (head);	\
++	     pos = list_entry(pos->member.next, typeof(*pos), member))
++
++/**
++ * list_for_each_entry_safe - iterate over list of given type safe against removal of list entry
++ * @pos:	the type * to use as a loop counter.
++ * @n:		another type * to use as temporary storage
++ * @head:	the head for your list.
++ * @member:	the name of the list_struct within the struct.
++ */
++#define list_for_each_entry_safe(pos, n, head, member)			\
++	for (pos = list_entry((head)->next, typeof(*pos), member),	\
++		n = list_entry(pos->member.next, typeof(*pos), member);	\
++	     &pos->member != (head); 					\
++	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
++
++/**
++ * list_for_each_entry_safe_continue -	iterate over list of given type
++ *			continuing after existing point safe against removal of list entry
++ * @pos:	the type * to use as a loop counter.
++ * @n:		another type * to use as temporary storage
++ * @head:	the head for your list.
++ * @member:	the name of the list_struct within the struct.
++ */
++#define list_for_each_entry_safe_continue(pos, n, head, member) 		\
++	for (pos = list_entry(pos->member.next, typeof(*pos), member), 		\
++		n = list_entry(pos->member.next, typeof(*pos), member);		\
++	     &pos->member != (head);						\
++	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
++
++/**
++ * list_for_each_entry_safe_reverse - iterate backwards over list of given type safe against
++ *				      removal of list entry
++ * @pos:	the type * to use as a loop counter.
++ * @n:		another type * to use as temporary storage
++ * @head:	the head for your list.
++ * @member:	the name of the list_struct within the struct.
++ */
++#define list_for_each_entry_safe_reverse(pos, n, head, member)		\
++	for (pos = list_entry((head)->prev, typeof(*pos), member),	\
++		n = list_entry(pos->member.prev, typeof(*pos), member);	\
++	     &pos->member != (head); 					\
++	     pos = n, n = list_entry(n->member.prev, typeof(*n), member))
++
++
++
++
++/*
++ * Double linked lists with a single pointer list head.
++ * Mostly useful for hash tables where the two pointer list head is
++ * too wasteful.
++ * You lose the ability to access the tail in O(1).
++ */
++
++struct hlist_head {
++	struct hlist_node *first;
++};
++
++struct hlist_node {
++	struct hlist_node *next, **pprev;
++};
++
++#define HLIST_HEAD_INIT { .first = NULL }
++#define HLIST_HEAD(name) struct hlist_head name = {  .first = NULL }
++#define INIT_HLIST_HEAD(ptr) ((ptr)->first = NULL)
++#define INIT_HLIST_NODE(ptr) ((ptr)->next = NULL, (ptr)->pprev = NULL)
++
++static inline int hlist_unhashed(const struct hlist_node *h)
++{
++	return !h->pprev;
++}
++
++static inline int hlist_empty(const struct hlist_head *h)
++{
++	return !h->first;
++}
++
++static inline void __hlist_del(struct hlist_node *n)
++{
++	struct hlist_node *next = n->next;
++	struct hlist_node **pprev = n->pprev;
++	*pprev = next;
++	if (next)
++		next->pprev = pprev;
++}
++
++static inline void hlist_del(struct hlist_node *n)
++{
++	__hlist_del(n);
++	n->next = LIST_POISON1;
++	n->pprev = LIST_POISON2;
++}
++
++
++static inline void hlist_del_init(struct hlist_node *n)
++{
++	if (n->pprev)  {
++		__hlist_del(n);
++		INIT_HLIST_NODE(n);
++	}
++}
++
++static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)
++{
++	struct hlist_node *first = h->first;
++	n->next = first;
++	if (first)
++		first->pprev = &n->next;
++	h->first = n;
++	n->pprev = &h->first;
++}
++
++
++
++/* next must be != NULL */
++static inline void hlist_add_before(struct hlist_node *n,
++					struct hlist_node *next)
++{
++	n->pprev = next->pprev;
++	n->next = next;
++	next->pprev = &n->next;
++	*(n->pprev) = n;
++}
++
++static inline void hlist_add_after(struct hlist_node *n,
++					struct hlist_node *next)
++{
++	next->next = n->next;
++	n->next = next;
++	next->pprev = &n->next;
++
++	if(next->next)
++		next->next->pprev  = &next->next;
++}
++
++
++
++#define hlist_entry(ptr, type, member) container_of(ptr,type,member)
++
++#define hlist_for_each(pos, head) \
++	for (pos = (head)->first; pos ; \
++	     pos = pos->next)
++
++#define hlist_for_each_safe(pos, n, head) \
++	for (pos = (head)->first; pos && ({ n = pos->next; 1; }); \
++	     pos = n)
++
++static inline struct hlist_node * hlist_search(struct hlist_head * hd, void * key,  int (*cmp)(struct hlist_node * in, void * key))
++{
++	struct hlist_node * pos;
++	
++	hlist_for_each(pos, hd)
++	{
++		if (cmp(pos, key))
++		{
++			return pos; 
++		}
++	}
++
++	return NULL;
++}
++
++/**
++ * hlist_for_each_entry	- iterate over list of given type
++ * @tpos:	the type * to use as a loop counter.
++ * @pos:	the &struct hlist_node to use as a loop counter.
++ * @head:	the head for your list.
++ * @member:	the name of the hlist_node within the struct.
++ */
++#define hlist_for_each_entry(tpos, pos, head, member)			 \
++	for (pos = (head)->first;					 \
++	     pos &&			 \
++		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1;}); \
++	     pos = pos->next)
++
++/**
++ * hlist_for_each_entry_continue - iterate over a hlist continuing after existing point
++ * @tpos:	the type * to use as a loop counter.
++ * @pos:	the &struct hlist_node to use as a loop counter.
++ * @member:	the name of the hlist_node within the struct.
++ */
++#define hlist_for_each_entry_continue(tpos, pos, member)		 \
++	for (pos = (pos)->next;						 \
++	     pos &&			 \
++		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1;}); \
++	     pos = pos->next)
++
++/**
++ * hlist_for_each_entry_from - iterate over a hlist continuing from existing point
++ * @tpos:	the type * to use as a loop counter.
++ * @pos:	the &struct hlist_node to use as a loop counter.
++ * @member:	the name of the hlist_node within the struct.
++ */
++#define hlist_for_each_entry_from(tpos, pos, member)			 \
++	for (; pos &&			 \
++		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1;}); \
++	     pos = pos->next)
++
++/**
++ * hlist_for_each_entry_safe - iterate over list of given type safe against removal of list entry
++ * @tpos:	the type * to use as a loop counter.
++ * @pos:	the &struct hlist_node to use as a loop counter.
++ * @n:		another &struct hlist_node to use as temporary storage
++ * @head:	the head for your list.
++ * @member:	the name of the hlist_node within the struct.
++ */
++#define hlist_for_each_entry_safe(tpos, pos, n, head, member) 		 \
++	for (pos = (head)->first;					 \
++	     pos && ({ n = pos->next; 1; }) && 				 \
++		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1;}); \
++	     pos = n)
++
++
++#endif
+Index: miniupnpd-1.9.20150609/upnpdatalist.c
+===================================================================
+--- /dev/null
++++ miniupnpd-1.9.20150609/upnpdatalist.c
+@@ -0,0 +1,294 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <syslog.h>
++#include <time.h>
++#include <unistd.h>
++#include "upnpredirect.h"
++#include "upnpdatalist.h"
++
++#ifdef TOMATO
++static struct list_head upnpd_list;
++struct list_head *g_upnpd_list = &upnpd_list;
++
++static int protocol_atoi(const char * protocol)
++{
++	int proto = IPPROTO_TCP;
++	if(strcmp(protocol, "UDP") == 0)
++		proto = IPPROTO_UDP;
++	return proto;
++}
++
++static char *protocol_itoa(unsigned int proto)
++{
++	if (proto == IPPROTO_TCP)
++		return ("TCP");
++	else
++		return ("UDP");
++}
++
++void dump_upnp_list(void)
++{
++	int i = 1;
++	struct list_head *pos;
++	list_for_each(pos, g_upnpd_list) {
++		struct rule_info *new = list_entry(pos,
++			struct rule_info, list);
++		fprintf(stderr, "%d %d %s %d %s %d %s %d\n",
++			i, new->enable, protocol_itoa(new->protocol),
++			new->eport, inet_ntoa(new->ipaddr),
++			new->iport, new->desc, new->timestamp);
++		i++;
++	}
++}
++
++void destory_upnpd_list(void)
++{
++	struct list_head *pos, *n;
++	struct rule_info *new;
++
++	list_for_each_safe(pos, n, g_upnpd_list){
++		//delete node
++       	list_del(pos);
++       	new = list_entry(pos, struct rule_info, list);		
++		upnp_delete_redirection(new->eport, protocol_itoa(new->protocol));
++       	//free node
++	   	free(new);
++	}
++	return ;
++}
++
++int delete_node_to_upnp_list(unsigned int protocol, unsigned short eport)
++{
++	struct list_head *pos, *n;
++	struct rule_info *new;
++
++	list_for_each_safe(pos, n, g_upnpd_list){
++      	new = list_entry(pos, struct rule_info, list);
++		if(new->protocol == protocol && new->eport == eport)
++		{		
++			//delete node
++       		list_del(pos);
++       		//free node
++	   		free(new);
++			return 1;
++		}
++	}
++	return 0;
++}
++
++struct rule_info *is_node_exist_upnpd_list(struct rule_info info)
++{
++	struct list_head *pos;
++	list_for_each(pos, g_upnpd_list) {
++		struct rule_info *new = list_entry(pos,
++			struct rule_info, list);
++		if (new->ipaddr.s_addr == info.ipaddr.s_addr && new->eport == info.eport &&
++			new->iport == info.iport && new->protocol == info.protocol)
++			return new;
++	}
++	return NULL;
++}
++
++int add_node_to_upnpd_list(struct rule_info info)
++{
++	struct rule_info *newNode = (struct rule_info *)malloc(sizeof(struct rule_info));
++
++	if(newNode != NULL)
++	{
++		newNode->enable = info.enable;
++		newNode->eport = info.eport;
++		newNode->ipaddr = info.ipaddr;
++		newNode->iport = info.iport;
++		newNode->protocol = info.protocol;
++		newNode->timestamp = info.timestamp;
++		memcpy(newNode->desc, info.desc, sizeof(newNode->desc) - 1);
++
++		list_add(&newNode->list, g_upnpd_list);	
++	}
++	return 0;
++}
++
++void add_and_update_upnpd_list_info(
++	unsigned int enable, 
++	unsigned short eport,
++    const char * iaddr,
++    unsigned short iport,
++    const char * proto,
++    const char * desc,
++    unsigned int timestamp
++)
++{
++	struct rule_info info, *new = NULL;
++	memset(&info, 0x0, sizeof(struct rule_info));
++
++	info.enable = enable;
++	info.eport = eport;
++	info.ipaddr.s_addr = inet_addr(iaddr);
++	info.iport = iport;
++	info.protocol = protocol_atoi(proto);
++
++	info.timestamp = timestamp;
++	memcpy(info.desc, desc, sizeof(info.desc) - 1);
++
++	new = is_node_exist_upnpd_list(info);
++	if(new != NULL)
++	{
++		new->enable = info.enable;		
++		new->timestamp = timestamp;
++		memcpy(new->desc, desc, sizeof(info.desc) - 1);
++	}
++	else
++	{
++		add_node_to_upnpd_list(info);
++	}
++}
++
++/* reload_data_from_file()
++ * read lease_file and add the rules contained
++ */
++int reload_data_from_file(const char *pathfile)
++{
++	FILE * fd;
++	unsigned short eport, iport;	
++	unsigned int leaseduration;
++	unsigned int timestamp;
++	unsigned int enable;
++	
++	char proto[10] = {0}, ipaddr[16] = {0}, desc[64] = {0};
++	char line[128] = {0};
++	int matchs = 0, r = 0;	
++	char * rhost;
++	time_t current_time;
++
++	if(!pathfile) 
++		return -1;
++	
++	fd = fopen(pathfile, "r" );
++	if (fd == NULL) 
++	{
++		syslog(LOG_ERR, "could not open lease file: %s", pathfile);
++		return -1;
++	}
++
++	current_time = time(NULL);
++	while(fgets(line, sizeof(line), fd)) 
++	{
++		syslog(LOG_DEBUG, "parsing lease file line '%s'", line);
++		
++		matchs = sscanf(line, "%u:%[^:]:%hu:%[^:]:%hu:%u:%[^:]", &enable, proto, &eport, ipaddr, &iport, &timestamp, desc);
++				
++		if(matchs != 7)
++			continue;
++
++		if(timestamp > 0) 
++		{
++			if(timestamp <= (unsigned int)current_time) 
++			{
++				syslog(LOG_NOTICE, "already expired lease in lease file");
++				continue;
++			} 
++			else 
++			{
++				leaseduration = timestamp - current_time;
++			}
++		} else 
++		{
++			leaseduration = 0;	/* default value */
++		}
++		
++		rhost = NULL;
++		r = upnp_redirect(enable, rhost, eport, ipaddr, iport, proto, desc, leaseduration);
++		if(r < 0) 
++		{
++			syslog(LOG_ERR, "Failed to redirect %hu -> %s:%hu protocol %s",
++			       eport, ipaddr, iport, proto);
++		}
++	}
++	fclose(fd);
++
++	return 0;
++}
++
++void init_upnpd_list_data(void)
++{
++	INIT_LIST_HEAD(g_upnpd_list);
++
++	if(access("/etc/upnp", F_OK) == -1)
++	{
++		mkdir("/etc/upnp", 0x755);
++	}
++
++	reload_data_from_file(UPNP_DATA_LIST_PATHFILE);
++	dump_upnp_list();
++}
++
++int write_date_to_file(const char *pathfile)
++{
++	FILE *fp = NULL;
++	
++	fp = fopen( pathfile, "w");
++	if (fp != NULL) 
++	{
++		struct list_head *pos;
++		struct rule_info *new;
++		
++		list_for_each(pos, g_upnpd_list){
++			new = list_entry(pos, struct rule_info, list);
++			fprintf(fp, "%d:%s:%d:%s:%d:%d:%s\n", 
++				new->enable, protocol_itoa(new->protocol),
++				new->eport, inet_ntoa(new->ipaddr), new->iport,
++				new->timestamp, new->desc);
++		}
++		fclose(fp);
++	}
++	return 0;
++}
++
++void delete_data_from_file(void)
++{
++	FILE *f;
++	char s[128];
++	unsigned short eport;
++	unsigned short iport;
++	unsigned int leaseduration;
++	char proto[4];
++	char iaddr[32];
++	char desc[64];
++	char rhost[32];
++	int n;
++
++	if ((f = fopen(UPNP_DATA_DEL_PATHTILE, "r")) != NULL)
++	{
++		s[sizeof(s) - 1] = 0;
++		while (fgets(s, sizeof(s) - 1, f))
++		{
++			if (sscanf(s, "%3s %hu", proto, &eport) == 2)
++			{
++				if (proto[0] == '*')
++				{
++					n = upnp_get_portmapping_number_of_entries();
++					while (--n >= 0)
++					{
++						if (upnp_get_redirection_infos_by_index(n, &eport, proto, &iport, iaddr, sizeof(iaddr), desc, sizeof(desc), rhost, sizeof(rhost), &leaseduration) == 0)
++						{
++							delete_node_to_upnp_list(protocol_atoi(proto), eport);
++							upnp_delete_redirection(eport, proto);
++						}
++					}
++					break;
++				}
++				else
++				{
++					delete_node_to_upnp_list(protocol_atoi(proto), eport);
++					upnp_delete_redirection(eport, proto);
++				}
++			}
++		}
++		fclose(f);
++	}
++
++}
++
++#endif
++
+Index: miniupnpd-1.9.20150609/upnpdatalist.h
+===================================================================
+--- /dev/null
++++ miniupnpd-1.9.20150609/upnpdatalist.h
+@@ -0,0 +1,36 @@
++#ifndef __UPNP_DATA_LIST_H
++#define __UPNP_DATA_LIST_H
++
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include "config.h"
++#include "list.h"
++
++#ifdef TOMATO
++struct rule_info{
++	struct list_head list;
++	unsigned int enable;
++	unsigned short eport;
++	unsigned short iport;	
++	struct in_addr ipaddr;
++	unsigned int protocol;
++	unsigned int timestamp;
++	unsigned char desc[64];
++};
++
++#define UPNP_DATA_LIST_PATHFILE		("/etc/upnp/data")
++#define UPNP_DATA_SAVE_PATHFILE		("/etc/upnp/save")
++#define UPNP_DATA_DEL_PATHTILE		("/etc/upnp/delete")
++
++void destory_upnpd_list(void);
++void dump_upnp_list(void);
++void init_upnpd_list_data(void);
++void add_and_update_upnpd_list_info(unsigned int enable, unsigned short eport,
++    const char * iaddr, unsigned short iport, const char * proto, const char * desc, unsigned int timestamp);
++int delete_node_to_upnp_list(unsigned int protocol, unsigned short eport);
++int write_date_to_file(const char *pathfile);
++void delete_data_from_file(void);
++#endif
++#endif // __UPNP_DATA_LIST_H
++
+Index: miniupnpd-1.9.20150609/genconfig.sh
+===================================================================
+--- miniupnpd-1.9.20150609.orig/genconfig.sh
++++ miniupnpd-1.9.20150609/genconfig.sh
+@@ -522,6 +522,8 @@ cat >> ${CONFIGFILE} <<EOF
+ #define USE_TIME_AS_BOOTID
+ EOF
+ 
++echo "#define TOMATO 1" >> ${CONFIGFILE}
++
+ echo "#endif /* ${CONFIGMACRO} */" >> ${CONFIGFILE}
+ 
+ ${MV} ${CONFIGFILE} ${CONFIGFILE_FINAL}

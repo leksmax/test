@@ -185,7 +185,6 @@ start() {
 	    config_foreach conf_rule_add perm_rule "$tmpconf"
 	fi
 
-
 	if [ -n "$ifname" ]; then
 		# start firewall
 		iptables -L MINIUPNPD >/dev/null 2>/dev/null || fw3 reload
