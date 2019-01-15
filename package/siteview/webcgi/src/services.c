@@ -263,7 +263,7 @@ int libgw_get_upnp_rules(upnp_rule_t *upnp)
 			matchs = sscanf(line, "%d:%[^:]:%d:%[^:]:%d:%d:%s", &enabled, protocol,
 				&eport, ipaddr, &iport, &timestamp, desc);
 
-			if(matchs != 7)
+			if(matchs != 7 || i >= MAX_UPNP_RULES_NUM)
 				continue;
 			
 			upnp[i].status = enabled;
