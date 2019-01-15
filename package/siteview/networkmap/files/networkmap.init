@@ -3,9 +3,9 @@
 START=30
 
 start() {
-    service_start /sbin/networkmap
+    service_start /usr/sbin/networkmap
 }
 
 stop() {
-    service_stop /sbin/networkmap
+    service_stop /usr/sbin/networkmap
 }

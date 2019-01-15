@@ -22,7 +22,7 @@ endef
 
 define Package/networkmap/install
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(CP) ./files/networkmap.init $(1)/etc/init.d/networkmap
+	$(INSTALL_BIN) ./files/networkmap.init $(1)/etc/init.d/networkmap
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/networkmap $(1)/usr/sbin/
 endef
