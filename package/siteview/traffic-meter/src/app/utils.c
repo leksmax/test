@@ -10,7 +10,7 @@
 #include <linux/if.h>
 #include <errno.h>
 
-#include <shared/flash_mtd.h>
+#include <shared.h>
 
 #include "utils.h"
 

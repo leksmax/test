@@ -20,8 +20,8 @@ define Build/Prepare
 endef
 
 define Build/InstallDev
-	$(INSTALL_DIR) $(1)/usr/include/shared
-	$(CP) $(PKG_BUILD_DIR)/*.h $(1)/usr/include/shared
+	$(INSTALL_DIR) $(1)/usr/include/
+	$(CP) $(PKG_BUILD_DIR)/*.h $(1)/usr/include/
 	$(INSTALL_DIR) $(1)/usr/lib
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/libshared.so $(1)/usr/lib/libshared.so
 endef

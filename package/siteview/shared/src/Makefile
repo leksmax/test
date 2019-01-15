@@ -4,7 +4,7 @@ CFLAGS += -Wall -I. -I./include
 
 LDFLAGS += -L.
 
-OBJS := flash_mtd.o
+OBJS := flash_mtd.o files.o
 
 all: libshared.so
 
