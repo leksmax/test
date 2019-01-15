@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/sysinfo.h>
 #include <unistd.h>
 #include <time.h>
 
@@ -79,6 +80,32 @@ int libgw_set_syslog_cfg(syslog_cfg_t *cfg)
     config_set_int(SYSLOG_REMOTE, cfg->log_remote);
     config_set(SYSLOG_IP, cfg->server_ip);
     config_set_int(SYSLOG_LEVEL, cfg->log_level);
+
+    return 0;
+}
+
+int libgw_get_device_sn(char *sn, int len)
+{
+    FILE *fp;
+    int ret = 0;
+    char line[128];
+
+    fp = popen("artmtd -r sn", "r");
+    if(!fp)
+    {   
+        return -1; 
+    }   
+        
+    fgets(line, sizeof(line), fp);
+        
+    ret  = sscanf(line, "sn:%s", sn);
+    if(ret != 1)
+    {   
+        fclose(fp);
+        return -1; 
+    }   
+
+    fclose(fp);
 
     return 0;
 }
@@ -394,6 +421,147 @@ out:
 }
 
 #define SYSTIME_API
+
+int get_system_info(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    char hw_ver[64] = {0};
+    char fw_ver[64] = {0};
+    char sn[64] = {0};
+
+    strncpy(hw_ver, cat_file("/hardware_version"), sizeof(hw_ver) - 1);
+    strncpy(fw_ver, cat_file("/firmware_version"), sizeof(fw_ver) - 1);
+
+    ret = libgw_get_device_sn(sn, sizeof(sn));
+    if (ret < 0)
+    {
+        /* get sn error!\n */
+    }
+    
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"hardware_version\":\"%s\",\"firmware_version\":\"%s\",\"serial_number\":\"%s\"", 
+            hw_ver, fw_ver, sn);
+    webs_write(req->out, "}}");
+
+    return 0;
+}
+
+int get_mem_stats(struct mem_stats *mem)
+{
+    int match = 0;
+    FILE *fp = NULL;
+    char line[128] = {0};
+
+    fp = fopen("/proc/meminfo", "r");
+    if(!fp)
+    {   
+        //log_error("open /proc/meminfo failed!\n");
+        return -1; 
+    }   
+
+    while (fgets(line, sizeof(line), fp))
+    {
+        match = sscanf(line, "MemTotal: %lu %*s", &mem->total);
+        if (match == 1)
+        {
+            continue;
+        }
+
+        match = sscanf(line, "MemFree: %lu %*s", &mem->free);
+        if (match == 1)
+        {
+            continue;
+        }
+
+        match = sscanf(line, "Buffers: %lu %*s", &mem->buffers);
+        if (match == 1)
+        {
+            continue;
+        }
+
+        match = sscanf(line, "Cached: %lu %*s", &mem->cached);
+        if (match == 1)
+        {
+            break;
+        }
+    }
+    fclose(fp);
+
+    return 0;
+}
+
+int get_cpu_temp(int *temp)
+{
+    int match = 0;
+    FILE *fp = NULL;
+    char buf[128] = {0};
+
+    fp = fopen("/sys/class/thermal/thermal_zone0/temp", "r");
+    if (!fp)
+    {
+        return -1;
+    }
+
+    fgets(buf, sizeof(buf), fp);
+
+    fclose(fp);
+
+    match = sscanf(buf, "%d", temp);
+    if (match != 1)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+int get_system_status(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    int cpu_temp;
+    time_t cur_time;
+    struct sysinfo s;
+    double m_usage;
+
+    ret = sysinfo(&s);
+    if (ret < 0)
+    {   
+        cgi_errno = CGI_ERR_INTERNAL;
+        goto out;
+    }
+
+    ret = get_cpu_temp(&cpu_temp);
+    if (ret < 0)
+    {   
+        cgi_errno = CGI_ERR_INTERNAL;
+        goto out;
+    }
+
+    cur_time = time(NULL);
+
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"uptime\":%ld,\"current_time\":%ld,\"cpu_temp\":%d", 
+            s.uptime, cur_time, cpu_temp);
+    
+    webs_write(req->out, ",\"cpu_stat\":{\"total\":1.00}");
+
+    m_usage = (1 - (s.freeram + s.sharedram + s.bufferram) / ((double)s.totalram)) * 100;
+    webs_write(req->out, ",\"mem_stat\":{\"total\":%lu,\"free\":%lu,\"buffers\":%lu,\"cached\":%lu,\"usage\":%.2lf}", 
+        s.totalram, s.freeram, s.bufferram, s.sharedram, m_usage);
+    
+    webs_write(req->out, "}}");
+
+out:
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    }    
+
+    return 0;
+}
 
 int get_ntp_config(cgi_request_t *req, cgi_response_t *resp)
 {

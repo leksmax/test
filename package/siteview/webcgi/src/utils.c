@@ -249,7 +249,7 @@ char *cjson_get_string(cJSON *obj, char *key)
 
 #define MISC_API
 
-char *cat_file(char *file)
+char *cat_file(const char *file)
 {
     int i = 0;
     FILE *fp = NULL;

@@ -75,7 +75,7 @@ void webs_text_header(wp_t * wp);
 void webs_redirect(wp_t * wp, char *html);
 void webs_write(wp_t * wp, char * fmt, ...);
 
-char *cat_file(char * file);
+char *cat_file(const char * file);
 void echo_file(char * value, char * file);
 
 int param_init(char * data, int * method, cJSON ** params);

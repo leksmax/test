@@ -3,8 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "utils.h"
-#include "servlet.h"
+#include "webcgi.h"
 #include "services.h"
 
 const char *ddns_services[_DDNS_MAX] = {
@@ -13,33 +12,113 @@ const char *ddns_services[_DDNS_MAX] = {
     "www.DynDNS.org",
 };
 
+struct json_ddns {
+    int enabled;
+    char *service;
+    int updatetime;
+    char *domainname;
+    char *username;
+    char *password;
+};
+
+struct json_upnpd {
+    int enabled;
+    int interval;
+    int time_to_live;
+};
+
+const struct json_val json_ddns_opts[] = {
+    JSON_VAL("enabled", int, ddns, enabled),
+    JSON_VAL("service", string, ddns, service),        
+    JSON_VAL("updatetime", int, ddns, updatetime),
+    JSON_VAL("domainname", string, ddns, domainname),
+    JSON_VAL("username", string, ddns, username),
+    JSON_VAL("password", string, ddns, password),
+    {  }
+};
+
+const struct json_val json_upnpd_opts[] = {
+    JSON_VAL("enabled", int, upnpd, enabled),
+    JSON_VAL("interval", int, upnpd, interval),        
+    JSON_VAL("time_to_live", int, upnpd, time_to_live),
+    {  }
+};
+
+
 int libgw_get_ddns_cfg(ddns_cfg_t *cfg)
 {
+    cfg->enabled = config_get_int(DDNS_ENABLED);
+    strncpy(cfg->service, config_get(DDNS_SERVICES), sizeof(cfg->service) - 1);
+    cfg->updatetime = config_get_int(DDNS_UPDATE_TIME);
+    strncpy(cfg->host, config_get(DDNS_DOMAIN_NAME), sizeof(cfg->host) - 1);
+    strncpy(cfg->username, config_get(DDNS_USERNAME), sizeof(cfg->username) - 1);
+    strncpy(cfg->password, config_get(DDNS_PASSWORD), sizeof(cfg->password) - 1);
+    strncpy(cfg->interface, config_get(DDNS_INTERFACE), sizeof(cfg->interface) - 1);
+    
     return 0;
 }
 
 int libgw_set_ddns_cfg(ddns_cfg_t *cfg)
 {
+    config_set_int(DDNS_ENABLED, cfg->enabled);
+    config_set(DDNS_SERVICES, cfg->service);
+    config_set_int(DDNS_UPDATE_TIME, cfg->updatetime);
+    config_set(DDNS_DOMAIN_NAME, cfg->host);
+    config_set(DDNS_USERNAME, cfg->username);
+    config_set(DDNS_PASSWORD, cfg->password);
+    //config_set(DDNS_INTERFACE, cfg->interface);
+    
     return 0;
 }
 
 int libgw_get_upnp_cfg(upnp_cfg_t *cfg)
 {
+    cfg->enabled = config_get_int(UPNPD_ENABLED);
+    cfg->intval = config_get_int(UPNPD_INTERVAL);
+    cfg->ttl = config_get_int(UPNPD_TIME_TO_LIVE);
+
     return 0;
 }
 
 int libgw_set_upnp_cfg(upnp_cfg_t *cfg)
 {
+    config_set_int(UPNPD_ENABLED, cfg->enabled);
+    config_set_int(UPNPD_INTERVAL, cfg->intval);
+    config_set_int(UPNPD_TIME_TO_LIVE, cfg->ttl);
+
     return 0;
 }
 
 int parse_json_ddns_cfg(cJSON *param, ddns_cfg_t *cfg)
 {
+    struct json_ddns p;
+
+    memset(&p, 0x0, sizeof(struct json_ddns));
+    json_parse_vals((void *)&p, json_ddns_opts, param);
+
+    /* 检查参数, TODO */
+    cfg->enabled = p.enabled;
+    strncpy(cfg->service, p.service, sizeof(cfg->service) - 1);
+    cfg->updatetime = p.updatetime;
+    strncpy(cfg->host, p.domainname, sizeof(cfg->host) - 1);
+    strncpy(cfg->username, p.username, sizeof(cfg->username) - 1);
+    strncpy(cfg->password, p.password, sizeof(cfg->password) - 1);
+
     return 0;
 }
 
 int parse_json_upnp_cfg(cJSON *param, upnp_cfg_t *cfg)
 {
+    struct json_upnpd p;
+
+    memset(&p, 0x0, sizeof(struct json_upnpd));
+    json_parse_vals((void *)&p, json_upnpd_opts, param);
+
+    /* 检查参数, TODO */
+    cfg->enabled = p.enabled;
+    cfg->intval = p.interval;
+    cfg->ttl = p.time_to_live;
+
     return 0;
 }
 
@@ -315,7 +394,7 @@ int set_upnpd_config(cgi_request_t *req, cgi_response_t *resp)
         goto out;
     }
 
-    fork_exec(1, "/etc/init.d/miniupnpd restart");
+    //fork_exec(1, "/etc/init.d/miniupnpd restart");
     
 out:
     param_free();

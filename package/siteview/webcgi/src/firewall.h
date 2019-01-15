@@ -34,6 +34,11 @@ struct fw_state {
     struct list_head pt_rules;
 };
 
+struct fw_weburl {
+    char keyword[128];
+    struct list_head list;
+};
+
 int port_forward_list(cgi_request_t *req, cgi_response_t *resp);
 int port_forward_config(cgi_request_t *req, cgi_response_t *resp);
 

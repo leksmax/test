@@ -29,6 +29,26 @@ typedef struct {
     char server_ip[16];
 } syslog_cfg_t;
 
+struct cpu_stats {
+    unsigned long long user;    // user (application) usage
+    unsigned long long nice;    // user usage with "niced" priority
+    unsigned long long system;  // system (kernel) level usage
+    unsigned long long idle;    // CPU idle and no disk I/O outstanding
+    unsigned long long iowait;  // CPU idle but with outstanding disk I/O
+    unsigned long long irq;     // Interrupt requests
+    unsigned long long sirq;    // Soft interrupt requests
+    unsigned long long steal;   // Invol wait, hypervisor svcing other virtual CPU
+    unsigned long long busy;
+    unsigned long long total;
+};
+
+struct mem_stats {
+    unsigned long total;    // RAM total
+    unsigned long free;     // RAM free
+    unsigned long buffers;  // RAM buffers
+    unsigned long cached;   // RAM cached
+};
+
 #define SYSLOG_ENABLE "system.@syslog[0].enabled"
 #define SYSLOG_SIZE "system.@syslog[0].log_size"
 #define SYSLOG_FILE "system.@syslog[0].log_file"
@@ -41,6 +61,9 @@ typedef struct {
 #define NTP_TIMEZONE "system.@ntpclient[0].timezone"
 #define NTP_SERVER1 "system.@ntpclient[0].server1"
 #define NTP_SERVER2 "system.@ntpclient[0].server2"
+
+int get_system_info(cgi_request_t * req, cgi_response_t * resp);
+int get_system_status(cgi_request_t * req, cgi_response_t * resp);
 
 /* 重启与复位 */
 int do_reboot(cgi_request_t * req, cgi_response_t * resp);

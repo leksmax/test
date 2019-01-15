@@ -24,7 +24,7 @@ const char *wan_names[_WAN_UNIT_MAX] = {
     "WAN2",
 };
 
-const char *wan4_modes[_WAN4_TYPE_MAX] = {
+const char *wan4_modes[_WAN4_PROTO_MAX] = {
     "none",
     "static",
     "dhcp",
@@ -107,11 +107,6 @@ int config_set_wan6_int(int unit, const char *name, int value)
     return config_set_int(wanx_param, value);    
 }
 
-char *get_wan_ifname(int unit)
-{
-    return config_get_wan(unit, "ifname");
-}
-
 int get_lan_unit(char *name)
 {
     int unit;
@@ -140,6 +135,47 @@ int get_wan_unit(char *name)
     }
     
     return WAN1_UNIT;
+}
+
+int get_main_ifname(int unit)
+{
+    return config_get_wan(unit, "ifname");
+}
+
+int get_wan_proto(int unit)
+{
+    int i;
+    char *proto;
+    
+    proto = config_get_wan(unit, "proto");
+    
+    for (i = 0; i < _WAN4_PROTO_MAX; i ++)
+    {
+        if (!strcmp(wan4_modes[i], proto))
+        {
+            return i;
+        }
+    }
+
+    return WAN4_PROTO_NONE;
+}
+
+char *get_wan_ifname(int unit)
+{
+    int proto;
+    char *wan_ifname;
+
+    proto = get_wan_proto(unit);
+    if (proto == WAN4_PROTO_NONE ||
+        proto == WAN4_PROTO_STATIC ||
+        proto == WAN4_PROTO_DHCP)
+    {
+        return get_main_ifname(unit);
+    }
+    else if (proto == WAN4_PROTO_PPPOE)
+    {
+        
+    }
 }
 
 #define ADP_NTWK
@@ -556,7 +592,7 @@ int parse_dualwan_config(cJSON *params, dualwan_cfg_t *cfg)
     }
 
     strncpy(cfg->secondary, strVal, sizeof(cfg->secondary) - 1);
-
+    
     ret = cjson_get_int(params, "mode", &cfg->mode);
     if (ret < 0)
     {
@@ -592,14 +628,14 @@ int get_lan_config(cgi_request_t *req, cgi_response_t *resp)
     ret = param_init(req->post_data, &method, &params);
     if (ret < 0)
     {
-        cgi_errno = 101;
+        cgi_errno = CGI_ERR_PARAM;
         goto out;
     }
 
     strVal = cjson_get_string(params, "lan");
     if (!strVal)
     {    
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
 
@@ -608,7 +644,7 @@ int get_lan_config(cgi_request_t *req, cgi_response_t *resp)
     ret = libgw_get_lan_cfg("LAN1", &cfg);
     if (ret < 0)
     {    
-        cgi_errno = 102;
+        cgi_errno = CGI_ERR_CFG_FILE;
         goto out;
     }
 
@@ -634,10 +670,53 @@ out:
 
 int get_lan_status(cgi_request_t *req, cgi_response_t *resp)
 {
-    webs_json_header(req->out);
-    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    int ret = 0;
+    int method = 0;
+    cJSON *params = NULL;
+    char *strVal = NULL;
+    lan_cfg_t cfg;
+    
+    ret = param_init(req->post_data, &method, &params);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_PARAM;
+        goto out;
+    }
 
-    return 0;
+    strVal = cjson_get_string(params, "lan");
+    if (!strVal)
+    {    
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+
+    memset(&cfg, 0x0, sizeof(lan_cfg_t));
+
+    ret = libgw_get_lan_cfg("LAN1", &cfg);
+    if (ret < 0)
+    {    
+        cgi_errno = CGI_ERR_CFG_FILE;
+        goto out;
+    }
+
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"interface\":[{\"lan\":\"%s\",\"ipaddr\":\"%s\",\"netmask\":\"%s\","
+            "\"dhcpd_enable\":%d,\"dhcpd_start\":\"%s\",\"dhcpd_end\":\"%s\"}]",
+            cfg.lan, cfg.ipaddr, cfg.netmask, cfg.dhcpd_enable, cfg.dhcpd_start, 
+            cfg.dhcpd_end);
+    webs_write(req->out, "}}");
+    
+out:
+    param_free();
+
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    }
+    
+    return ret;
 }
 
 int set_lan_config(cgi_request_t *req, cgi_response_t *resp)
@@ -684,22 +763,59 @@ out:
     return 0;
 }
 
-int get_dhcp_config(cgi_request_t *req, cgi_response_t *resp)
-{
-    return 0;
-}
-
-int get_dhcp_list(cgi_request_t *req, cgi_response_t *resp)
-{
-    return 0;
-}
-
-int get_dhcp_reserv(cgi_request_t *req, cgi_response_t *resp)
-{
-    return 0;
-}
-
 int get_wan_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    int method = 0;
+    cJSON *params = NULL;
+    char *strVal = NULL;
+    wan_cfg_t cfg;
+    
+    ret = param_init(req->post_data, &method, &params);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_PARAM; 
+        goto out;
+    }
+
+    strVal = cjson_get_string(params, "wan");
+    if (!strVal)
+    {    
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+
+    memset(&cfg, 0x0, sizeof(wan_cfg_t));
+
+    ret = libgw_get_wan_cfg("WAN1", &cfg);
+    if (ret < 0)
+    {    
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+    
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"interface\":[{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
+            "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
+            "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\"}]",
+            cfg.wan, cfg.proto, cfg.ipaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
+            cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2);
+    webs_write(req->out, "}}");
+out:
+    
+    param_free();
+
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    }
+    
+    return ret;
+}
+
+int get_wan_status(cgi_request_t *req, cgi_response_t *resp)
 {
     int ret = 0;
     int method = 0;

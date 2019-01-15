@@ -36,13 +36,13 @@
 #define DUALWAN_WEIGHT2     ("dualwan.global.weight2")
 
 enum {
-    WAN4_TYPE_NONE   = 0,
-    WAN4_TYPE_STATIC = 1,
-    WAN4_TYPE_DHCP   = 2,
-    WAN4_TYPE_PPPOE  = 3,
-    WAN4_TYPE_PPTP   = 4,
-    WAN4_TYPE_L2TP   = 5,
-    _WAN4_TYPE_MAX
+    WAN4_PROTO_NONE   = 0,
+    WAN4_PROTO_STATIC = 1,
+    WAN4_PROTO_DHCP   = 2,
+    WAN4_PROTO_PPPOE  = 3,
+    WAN4_PROTO_PPTP   = 4,
+    WAN4_PROTO_L2TP   = 5,
+    _WAN4_PROTO_MAX
 };
 
 enum {
@@ -121,23 +121,27 @@ typedef struct {
 } dualwan_cfg_t;
 
 int get_interface_lan(cgi_request_t * req, cgi_response_t * resp);
+int get_interface_wan(cgi_request_t * req, cgi_response_t * resp);
+
 int get_lan_config(cgi_request_t * req, cgi_response_t * resp);
 int set_lan_config(cgi_request_t * req, cgi_response_t * resp);
+int get_lan_status(cgi_request_t * req, cgi_response_t * resp);
 
-int get_interface_wan(cgi_request_t * req, cgi_response_t * resp);
 int get_wan_config(cgi_request_t * req, cgi_response_t * resp);
 int set_wan_config(cgi_request_t * req, cgi_response_t * resp);
+int get_wan_status(cgi_request_t * req, cgi_response_t * resp);
 
 int get_lan6_config(cgi_request_t * req, cgi_response_t * resp);
 int set_lan6_config(cgi_request_t * req, cgi_response_t * resp);
+int get_lan6_status(cgi_request_t * req, cgi_response_t * resp);
+
 int get_wan6_config(cgi_request_t * req, cgi_response_t * resp);
-int set_lan6_config(cgi_request_t * req, cgi_response_t * resp);
+int set_wan6_config(cgi_request_t * req, cgi_response_t * resp);
+int get_wan6_status(cgi_request_t * req, cgi_response_t * resp);
 
 int get_dualwan_config(cgi_request_t * req, cgi_response_t * resp);
 int set_dualwan_config(cgi_request_t * req, cgi_response_t * resp);
-int get_dualwan_status(cgi_request_t * req, cgi_response_t * resp);
 int dualwan_check_config(cgi_request_t * req, cgi_response_t * resp);
-
-
+int get_dualwan_status(cgi_request_t * req, cgi_response_t * resp);
 
 #endif

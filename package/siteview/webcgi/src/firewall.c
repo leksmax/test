@@ -85,7 +85,7 @@ int firewall_config_init()
                 }
             }
 
-            pf->id ++;
+            pf->id = fw.pf_num + 1;
             list_add_tail(&pf->list, &fw.pf_rules);
             fw.pf_num ++;
         }
@@ -133,7 +133,8 @@ int firewall_config_init()
                      strncpy(pt->ext_proto, o->v.string, sizeof(pt->ext_proto) - 1);
                 }
             }
-        
+            
+            pt->id = fw.pt_num + 1;
             list_add_tail(&pt->list, &fw.pt_rules);
             fw.pt_num ++;            
         }
@@ -144,6 +145,18 @@ out:
     uci_free_context(ctx);
 
     return 0;
+}
+
+void port_forward_rule_free(pf_rule_t *pf)
+{
+    list_del(&pf->list);
+    free(pf);
+}
+
+void port_trigger_rule_free(pt_rule_t *pt)
+{
+    list_del(&pt->list);
+    free(pt);
 }
 
 void firewall_config_free()
@@ -292,11 +305,10 @@ int port_forward_add(cJSON *params)
 
     if (fw.pf_num >= MAX_PORT_FORWARD)
     {
-        return -1;
+        return CGI_ERR_CFG_OVERMUCH;
     }
         
     memset(&p, 0x0, sizeof(struct json_pf_rule));
-    
     json_parse_vals((void *)&p, json_pf_vals, params);
 
     /*
@@ -305,7 +317,7 @@ int port_forward_add(cJSON *params)
     pf = (pf_rule_t *)malloc(sizeof(pf_rule_t));
     if (!pf)
     {
-        return -1;
+        return CGI_ERR_INTERNAL;
     }
 
     pf->id = fw.pf_num;
@@ -319,7 +331,7 @@ int port_forward_add(cJSON *params)
     list_add_tail(&pf->list, &fw.pf_rules);
     fw.pf_num += 1;
 
-    return ret;
+    return CGI_ERR_OK;
 }
 
 int port_forward_edit(cJSON *params)
@@ -339,11 +351,9 @@ int port_forward_edit(cJSON *params)
         }
     }
 
-    cgi_debug("p.id = %d\n", p.id);
-
     if (!pf)
     {
-        return -1;
+        return CGI_ERR_CFG_PARAM;
     }
 
     strncpy(pf->name, p.name, sizeof(pf->name) - 1);
@@ -353,12 +363,45 @@ int port_forward_edit(cJSON *params)
     strncpy(pf->ext_port, p.ext_port, sizeof(pf->ext_port) - 1);
     strncpy(pf->proto, p.proto, sizeof(pf->proto) - 1);
 
-    return 0;
+    return CGI_ERR_OK;
 }
 
 int port_forward_del(cJSON *params)
 {
-    return 0;
+    int ret = 0;
+    cJSON *rules;
+    cJSON *jsonVal = NULL;
+    int intVal = 0;
+    pf_rule_t *pf, *tmp;
+
+    rules = cJSON_GetObjectItem(params, "rules");
+    if (!rules || rules->type != cJSON_Array)
+    {
+        return CGI_ERR_CFG_PARAM;
+    }
+
+    jsonVal = rules->child;
+    while (jsonVal)
+    {
+        ret = cjson_get_int(jsonVal, "id", &intVal);
+        if (ret < 0)
+        {
+            continue;
+        }
+
+        list_for_each_entry_safe(pf, tmp, &fw.pf_rules, list)
+        {
+            if (intVal == pf->id)
+            {
+                fw.pf_num -= 1;
+                port_forward_rule_free(pf);
+            }
+        }
+    
+        jsonVal = jsonVal->next;
+    }
+
+    return CGI_ERR_OK;
 }
 
 int port_forward_config(cgi_request_t *req, cgi_response_t *resp)
@@ -385,20 +428,20 @@ int port_forward_config(cgi_request_t *req, cgi_response_t *resp)
     switch(method)
     {
         case CGI_ADD:
-            ret = port_forward_add(params);
+            cgi_errno = port_forward_add(params);
             break;
         case CGI_SET:
-            ret = port_forward_edit(params);
+            cgi_errno = port_forward_edit(params);
             break;
         case CGI_DEL:
-            ret = port_forward_del(params);
+            cgi_errno = port_forward_del(params);
             break;
         default:
             cgi_errno = CGI_ERR_NOT_FOUND;
             break;
     }
 
-    //if (ret)
+    if (cgi_errno == CGI_ERR_OK)
     {
         firewall_config_commit();
        //fork_exec(1, "/etc/init.d/firewall restart");
@@ -464,7 +507,7 @@ int port_trigger_add(cJSON *params)
 
     if (fw.pf_num >= MAX_PORT_TRIGGER)
     {
-        return -1;
+        return CGI_ERR_CFG_OVERMUCH;
     }
         
     memset(&p, 0x0, sizeof(struct json_pt_rule));
@@ -476,7 +519,7 @@ int port_trigger_add(cJSON *params)
     pt = (pt_rule_t *)malloc(sizeof(pt_rule_t));
     if (!pt)
     {
-        return -1;
+        return CGI_ERR_INTERNAL;
     }
 
     pt->id = fw.pt_num;
@@ -490,7 +533,7 @@ int port_trigger_add(cJSON *params)
     list_add_tail(&pt->list, &fw.pt_rules);
     fw.pt_num += 1;
 
-    return ret;
+    return CGI_ERR_OK;
 }
 
 int port_trigger_edit(cJSON *params)
@@ -512,7 +555,7 @@ int port_trigger_edit(cJSON *params)
 
     if (!pt)
     {
-        return -1;
+        return CGI_ERR_CFG_PARAM;
     }
 
     strncpy(pt->name, p.name, sizeof(pt->name) - 1);
@@ -522,12 +565,45 @@ int port_trigger_edit(cJSON *params)
     strncpy(pt->ext_port, p.ext_port, sizeof(pt->ext_port) - 1);
     strncpy(pt->ext_proto, p.ext_proto, sizeof(pt->ext_proto) - 1);
 
-    return 0;
+    return CGI_ERR_OK;
 }
 
 int port_trigger_del(cJSON *params)
 {
-    return 0;
+    int ret = 0;
+    cJSON *rules;
+    cJSON *jsonVal = NULL;
+    int intVal = 0;
+    pt_rule_t *pt, *tmp;
+
+    rules = cJSON_GetObjectItem(params, "rules");
+    if (!rules || rules->type != cJSON_Array)
+    {
+        return CGI_ERR_CFG_PARAM;
+    }
+
+    jsonVal = rules->child;
+    while (jsonVal)
+    {
+        ret = cjson_get_int(jsonVal, "id", &intVal);
+        if (ret < 0)
+        {
+            continue;
+        }
+
+        list_for_each_entry_safe(pt, tmp, &fw.pt_rules, list)
+        {
+            if (intVal == pt->id)
+            {
+                fw.pt_num -= 1;
+                port_trigger_rule_free(pt);
+            }
+        }
+    
+        jsonVal = jsonVal->next;
+    }
+
+    return CGI_ERR_OK;
 }
 
 int port_trigger_config(cgi_request_t *req, cgi_response_t *resp)
@@ -579,5 +655,17 @@ out:
     webs_json_header(req->out);
     webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
 
+    return 0;
+}
+
+#define WEBSITE_ACL
+
+int get_website_acl_list(cgi_request_t *req, cgi_response_t *resp)
+{
+    return 0;
+}
+
+int set_website_acl_ctl(cgi_request_t *req, cgi_response_t *resp)
+{
     return 0;
 }
