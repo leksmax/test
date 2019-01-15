@@ -242,8 +242,7 @@ int ports_to_pbmp(int vlan, char *ports)
     char *res = NULL;
     char *delims = " ";
     
-    res = strtok(ports, delims);
-    
+    res = strtok(ports, delims);    
     while (res != NULL)
     {
         int port = 0;
@@ -264,6 +263,34 @@ int ports_to_pbmp(int vlan, char *ports)
 }
 
 int pbmp_to_ports(int vlan, char *ports, int len)
+{
+    int i = 0;
+    int n = 0;
+    int cnt = 0;
+
+    for (i = 1; i <= MAX_PANNEL_PORT; i ++)
+    {
+        if (!GET_BIT(sw.vlan_bmp[vlan], i))
+        {
+            continue;
+        }
+        
+        if (GET_BIT(sw.t_vlan_bmp[vlan], i))
+        {
+            cnt += snprintf(ports + cnt, len - cnt, "%s%dt", (n > 0) ? " " : "", i);
+        }
+        else
+        {
+            cnt += snprintf(ports + cnt, len - cnt, "%s%d", (n > 0) ? " " : "", i);
+        }
+        
+        n ++;
+    }
+
+    return 0;
+}
+
+int pbmp_to_json_ports(int vlan, char *ports, int len)
 {
     int i = 0;
     int n = 0;
@@ -375,25 +402,25 @@ int pbmp_to_ports(int vlan, char *ports, int len)
 }
 #endif
 
-int get_port_vlans(int phyPort, char *vlans, int len)
+int get_port_vlans(int port, char *vlans, int len)
 {
     int i = 0;
     int cnt = 0;
     char hit = 0;
 
-    for (i = 0; i < sw.vlan_entry; i ++)
+    for (i = 1; i <= sw.vlan_entry; i ++)
     {
         /* 判断port是否属于该vlan */
-        if (GET_BIT(sw.vlan_bmp[i], phyPort))
+        if (GET_BIT(sw.vlan_bmp[i], port))
         {
             /* 是否tagged */
-            if (GET_BIT(sw.t_vlan_bmp[i], phyPort))
+            if (GET_BIT(sw.t_vlan_bmp[i], port))
             {
-                cnt += snprintf(vlans + cnt, len - cnt, "%s\"%dt\"", (hit > 0 ? "," : ""), i + 1);                
+                cnt += snprintf(vlans + cnt, len - cnt, "%s\"%dt\"", (hit > 0 ? "," : ""), i);                
             }
             else
             {
-                cnt += snprintf(vlans + cnt, len - cnt, "%s\"%d\"", (hit > 0 ? "," : ""), i + 1);
+                cnt += snprintf(vlans + cnt, len - cnt, "%s\"%d\"", (hit > 0 ? "," : ""), i);
             }
 
             hit ++;
@@ -429,55 +456,13 @@ int ports_to_pbmp(char *ports, char *delims, vlan_cfg_t *vlan)
 }
 #endif
 
-void _uci_switch_add_vlan(FILE *fp, vlan_cfg_t *cfg)
+
+void clear_vlan_entry(int vlan)
 {
-    fprintf(fp, "config vlan\n");
-    fprintf(fp, "\toption name '%s'\n", cfg->name);
-    fprintf(fp, "\toption vlan '%d'\n", cfg->vlan);
-    fprintf(fp, "\toption vid '%d'\n", cfg->vid);
-    fprintf(fp, "\toption ports '%s'\n", cfg->ports);
-    fprintf(fp, "\toption desc '%s'\n", cfg->desc);
-    fprintf(fp, "\n");
+    sw.vid[vlan] = 0;
+    sw.vlan_bmp[vlan] = 0;
+    sw.t_vlan_bmp[vlan] = 0;
 }
-
-void _uci_switch_add_port(FILE *fp, port_cfg_t *cfg)
-{
-    fprintf(fp, "config switch_port\n");
-    fprintf(fp, "\toption name '%s'\n", cfg->name);
-    fprintf(fp, "\toption port '%d'\n", cfg->port);
-    fprintf(fp, "\toption pvid '%d'\n", cfg->pvid);
-    fprintf(fp, "\n");
-}
-
-void vlan_entry_commit()
-{
-    int i = 0;
-    int ret = 0;
-    FILE *fp = NULL;
-    struct vlan_alias *v;
-    vlan_cfg_t vlan;
-
-    fp = fopen("/etc/config/switch", "w");
-    if (!fp)
-    {
-        return ;
-    }
-
-    list_for_each_entry(v, &sw.vlans, list) 
-    {
-        memset(&vlan, 0x0, sizeof(vlan_cfg_t));
-        
-        vlan.vlan = v->vlan;
-        vlan.vid = sw.vid[vlan.vlan];
-        strncpy(vlan.name, v->name, sizeof(vlan.name) - 1);
-        strncpy(vlan.desc, v->desc, sizeof(vlan.desc) - 1);
-        pbmp_to_ports(vlan.vlan, vlan.ports, sizeof(vlan.ports));
-
-        _uci_switch_add_vlan(fp, &vlan);
-    }
-
-}
-
 
 int switch_config_init()
 {
@@ -504,7 +489,6 @@ int switch_config_init()
     memset(&sw, 0x0, sizeof(struct switch_vlan));
     
     INIT_LIST_HEAD(&sw.vlans);
-    INIT_LIST_HEAD(&sw.ports);
     
     uci_foreach_element(&pkg->sections, e) 
     {  
@@ -546,30 +530,27 @@ int switch_config_init()
                 }
             }
 
-            struct vlan_alias *p = NULL;
+            struct vlan_alias *v = NULL;
 
-            p = (struct vlan_alias *)malloc(sizeof(struct vlan_alias));
-            if (!p)
+            v = (struct vlan_alias *)malloc(sizeof(struct vlan_alias));
+            if (!v)
             {
                 continue;
             }
 
-            p->vlan = vlan.vid;
-            strncpy(p->name, vlan.name, sizeof(p->name) - 1);
-            strncpy(p->desc, vlan.desc, sizeof(p->desc) - 1);
+            v->vlan = vlan.vid;
+            strncpy(v->name, vlan.name, sizeof(v->name) - 1);
+            strncpy(v->desc, vlan.desc, sizeof(v->desc) - 1);
             
-            list_add_tail(&p->list, &sw.vlans);
+            list_add_tail(&v->list, &sw.vlans);
 
             sw.vid[vlan.vid] = vlan.vid;           
             ports_to_pbmp(vlan.vid, vlan.ports);
             sw.vlan_entry ++;
         }
-
-#if 0
         else if (!strcmp(s->type, "port"))
         {
-            int phyPort;
-            memset(&port, 0x0, sizeof(switch_port_t));
+            memset(&port, 0x0, sizeof(port_cfg_t));
             
             uci_foreach_element(&s->options, n) 
             {
@@ -587,10 +568,9 @@ int switch_config_init()
                     port.pvid = atoi(o->v.string);
                 }
             }
-            sw.pvid[phyPort] = port.pvid;
+            
+            sw.pvid[port.port] = port.pvid;
         }
-#endif
-
     } 
 
     uci_unload(ctx, pkg);
@@ -598,6 +578,68 @@ out:
     uci_free_context(ctx);
 
     return ret;
+}
+
+void switch_config_free()
+{
+    /* vlan */
+    
+}
+
+void _uci_switch_add_vlan(FILE *fp, vlan_cfg_t *cfg)
+{
+    fprintf(fp, "config vlan\n");
+    fprintf(fp, "\toption name '%s'\n", cfg->name);
+    fprintf(fp, "\toption vlan '%d'\n", cfg->vlan);
+    fprintf(fp, "\toption vid '%d'\n", cfg->vid);
+    fprintf(fp, "\toption ports '%s'\n", cfg->ports);
+    fprintf(fp, "\toption desc '%s'\n", cfg->desc);
+    fprintf(fp, "\n");
+}
+
+void _uci_switch_add_port(FILE *fp, port_cfg_t *cfg)
+{
+    fprintf(fp, "config port\n");
+    fprintf(fp, "\toption port '%d'\n", cfg->port);
+    fprintf(fp, "\toption pvid '%d'\n", cfg->pvid);
+    fprintf(fp, "\n");
+}
+
+void switch_config_commit()
+{
+    int i = 0;
+    int ret = 0;
+    FILE *fp = NULL;
+    struct vlan_alias *v;
+    vlan_cfg_t vlan;
+    port_cfg_t port;
+
+    fp = fopen("/etc/config/switch", "w");
+    if (!fp)
+    {
+        return ;
+    }
+
+    list_for_each_entry(v, &sw.vlans, list) 
+    {
+        memset(&vlan, 0x0, sizeof(vlan_cfg_t));
+        
+        vlan.vlan = v->vlan;
+        vlan.vid = sw.vid[vlan.vlan];
+        strncpy(vlan.name, v->name, sizeof(vlan.name) - 1);
+        strncpy(vlan.desc, v->desc, sizeof(vlan.desc) - 1);
+        pbmp_to_ports(vlan.vlan, vlan.ports, sizeof(vlan.ports));
+
+        _uci_switch_add_vlan(fp, &vlan);
+    }
+
+    for (i = 1; i <= MAX_PANNEL_PORT; i ++)
+    {
+        port.port = i;
+        port.pvid = sw.pvid[i];
+        
+        _uci_switch_add_port(fp, &port);
+    }
 }
 
 #define SWITCH_VLAN_API
@@ -630,7 +672,7 @@ int get_vlan_entry(cgi_request_t *req, cgi_response_t *resp)
         webs_write(req->out, "%s{\"id\":%d", (i > 0 ? "," : ""), i + 1);
         webs_write(req->out, ",\"vid\":%d", sw.vid[vlan]);
         
-        pbmp_to_ports(vlan, ports, sizeof(ports));
+        pbmp_to_json_ports(vlan, ports, sizeof(ports));
         webs_write(req->out, ",\"ports\":[%s]", ports);
 
         webs_write(req->out, ",\"name\":\"%s\"", v->name);
@@ -681,6 +723,9 @@ int parse_json_vlan_cfg(cJSON *params, vlan_cfg_t *cfg)
         return -1;
     }
 
+    int i = 0;
+    int cnt = 0;
+
     cJSON *c = val->child;
     while (c)
     {
@@ -688,9 +733,14 @@ int parse_json_vlan_cfg(cJSON *params, vlan_cfg_t *cfg)
         {
             return -1;
         }
+
+        cnt += snprintf(cfg->ports + cnt, sizeof(cfg->ports) - cnt, "%s%s", (i > 0) ? " " : "", c->valuestring);
+        i ++;
         
         c = c->next;
     }
+
+    cgi_debug("[%s]\n", cfg->ports);
 
     strval = cjson_get_string(params, "desc");
     if (!strval)
@@ -707,31 +757,118 @@ int vlan_entry_add(cJSON *params)
 {
     int ret = 0;
     vlan_cfg_t cfg;
-
-    memset(&cfg, 0x0, sizeof(vlan_cfg_t));
+    struct vlan_alias *v;
 
     if (sw.vlan_entry >= MAX_VLAN_ENTRY)
     {
         return CGI_ERR_CFG_OVERMUCH;
     }
 
+    memset(&cfg, 0x0, sizeof(vlan_cfg_t));
+    ret = parse_json_vlan_cfg(params, &cfg);
+    if (ret < 0)
+    {
+        return CGI_ERR_CFG_PARAM;
+    }
+    
+    v = (struct vlan_alias *)malloc(sizeof(struct vlan_alias));
+    if (!v)
+    {
+        return CGI_ERR_INTERNAL;
+    }
+
+    strncpy(v->name, cfg.name, sizeof(v->name) - 1);
+    strncpy(v->desc, cfg.desc, sizeof(v->desc) - 1);
+    v->vlan = sw.vlan_entry + 1;
+    sw.vid[v->vlan] = cfg.vid;
+    ports_to_pbmp(v->vlan, cfg.ports);
+    list_add_tail(&v->list, &sw.vlans);
+    
+    sw.vlan_entry ++;
+
+    return CGI_ERR_OK;
+}
+
+int vlan_entry_edit(cJSON *params)
+{
+    int id = 0;
+    int ret = 0;
+    vlan_cfg_t cfg;
+    struct vlan_alias *v;
+    int found = 0;
+
+    ret = cjson_get_int(params, "id", &id);
+    if (ret < 0)
+    {
+        return CGI_ERR_CFG_PARAM;
+    }
+
+    memset(&cfg, 0x0, sizeof(vlan_cfg_t));
     ret = parse_json_vlan_cfg(params, &cfg);
     if (ret < 0)
     {
         return CGI_ERR_CFG_PARAM;
     }
 
-    return 0;
-}
+    list_for_each_entry(v, &sw.vlans, list) {
+        if (v->vlan == id)
+        {
+            clear_vlan_entry(v->vlan);
+            sw.vid[v->vlan] = cfg.vid;
+            ports_to_pbmp(v->vlan, cfg.ports);
+            strncpy(v->name, cfg.name, sizeof(v->name));
+            strncpy(v->desc, cfg.desc, sizeof(v->desc));
+            found = 1;
+            break;
+        }
+    }
 
-int vlan_entry_edit(cJSON *params)
-{
-    return 0;
+    if (!found)
+    {
+        return CGI_ERR_CFG_PARAM;
+    }
+
+    return CGI_ERR_OK;
 }
 
 int vlan_entry_del(cJSON *params)
 {
-    return 0;
+    int ret = 0;
+    cJSON *rules;
+    cJSON *jsonVal = NULL;
+    int intVal = 0;
+    struct vlan_alias *v, *tmp;
+
+    rules = cJSON_GetObjectItem(params, "entry");
+    if (!rules || rules->type != cJSON_Array)
+    {
+        return CGI_ERR_CFG_PARAM;
+    }
+
+    jsonVal = rules->child;
+    while (jsonVal)
+    {
+        ret = cjson_get_int(jsonVal, "id", &intVal);
+        if (ret < 0)
+        {
+            continue;
+        }
+
+        list_for_each_entry_safe(v, tmp, &sw.vlans, list)
+        {
+            if (v->vlan == intVal)
+            {
+                clear_vlan_entry(v->vlan);
+                list_del(&v->list);
+                free(v);
+                sw.vlan_entry --;
+            }
+        }
+    
+        jsonVal = jsonVal->next;
+    }
+
+    return CGI_ERR_OK;
 }
 
 int vlan_entry_config(cgi_request_t *req, cgi_response_t *resp)
@@ -772,11 +909,12 @@ int vlan_entry_config(cgi_request_t *req, cgi_response_t *resp)
 
     if (cgi_errno == CGI_ERR_OK)
     {
-        vlan_entry_commit();
-        /* 重新初始化VLAN配置 */
+        switch_config_commit();
         //fork_exec(1, "/etc/init.d/switch restart");
     }
+    
 out:
+    switch_config_free();
     param_free();
     
     webs_json_header(req->out);
@@ -808,20 +946,19 @@ int port_vlan_list(cgi_request_t *req, cgi_response_t *resp)
     webs_write(req->out, ",\"port\":[");
 
     /* 遍历   switch port vlan 配置 */
-
     for (i = 1; i <= MAX_PANNEL_PORT; i ++)
     {
         webs_write(req->out, "%s{\"id\":%d", i > 1 ? "," : "", i);
-        phyPort = pannelPort_to_phyPort(i);
-        webs_write(req->out, ",\"pvid\":%d", sw.pvid[phyPort]);
-        get_port_vlans(phyPort, vlans, sizeof(vlans));
+        webs_write(req->out, ",\"pvid\":%d", sw.pvid[i]);
+        get_port_vlans(i, vlans, sizeof(vlans));
         webs_write(req->out, ",\"vlans\":[%s]}", vlans);
     }
 
     webs_write(req->out, "]}}");
 
 out:
-    
+    switch_config_free();
+
     if (cgi_errno != CGI_ERR_OK)
     {
         webs_json_header(req->out);
@@ -831,8 +968,68 @@ out:
     return 0;
 }
 
-int port_vlan_edit(cJSON *params)
+int port_pvid_check(port_cfg_t *cfg)
 {
+    if (cfg->port > MAX_PANNEL_PORT || cfg->port <= 0)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+int port_pvid_edit(cJSON *params)
+{
+    int ret = 0;
+    int intval = 0;
+    int i = 0;
+    int cnt = 0;
+    cJSON *val = NULL;
+    cJSON *arr = NULL;
+    port_cfg_t cfg;
+
+    arr = cJSON_GetObjectItem(params, "port");
+    if (!arr || arr->type != cJSON_Array)
+    {
+        return -1;
+    }
+
+    val = arr->child;    
+    while (val)
+    {
+        if (val->type != cJSON_Object)
+        {
+            return -1;
+        }
+
+        memset(&cfg, 0x0, sizeof(port_cfg_t));
+
+        ret = cjson_get_int(val, "id", &intval);
+        if (ret < 0)
+        {
+            return -1;
+        }
+        
+        cfg.port = intval;
+
+        ret = cjson_get_int(val, "pvid", &intval);
+        if (ret < 0)
+        {
+            return -1;
+        }
+        
+        cfg.pvid = intval;
+
+        if (port_pvid_check(&cfg) < 0)
+        {
+            return -1;
+        }
+
+        sw.pvid[cfg.port] = cfg.pvid;
+        
+        val = val->next;
+    }
+
     return 0;
 }
 
@@ -850,16 +1047,28 @@ int port_vlan_config(cgi_request_t *req, cgi_response_t *resp)
         goto out;
     }
 
-    ret = port_vlan_edit(params);
+    ret = switch_config_init();
     if (ret < 0)
     {
-           
+        cgi_errno = CGI_ERR_CFG_FILE;
+        goto out;
     }
 
-    //port_vlan_commit();
+    ret = port_pvid_edit(params);
+    if (ret < 0)
+    {
+        cgi_errno = CGI_ERR_CFG_PARAM;
+        goto out;
+    }
+    
+    if (cgi_errno == CGI_ERR_OK)
+    {
+        switch_config_commit();
+        //fork_exec(1, "/etc/init.d/switch restart")
+    }
 
-    /* 重新初始化VLAN配置 */
 out:    
+    switch_config_free();
     param_free();
 
     webs_json_header(req->out);

@@ -79,6 +79,47 @@ int config_set_wan_int(int unit, const char *name, int value)
     return config_set_int(wanx_param, value);    
 }
 
+
+char *config_get_lan(int unit, const char *name)
+{
+    char lanx_param[128] = {0};
+    if (unit == LAN1_UNIT)
+        snprintf(lanx_param, sizeof(lanx_param), "network.lan.%s", name);
+    else
+        snprintf(lanx_param, sizeof(lanx_param), "network.lan%d.%s", unit, name);
+    return config_get(lanx_param);
+}
+
+int config_get_lan_int(int unit, const char *name)
+{
+    char lanx_param[128] = {0};
+    if (unit == LAN1_UNIT)
+        snprintf(lanx_param, sizeof(lanx_param), "network.lan.%s", name);
+    else
+        snprintf(lanx_param, sizeof(lanx_param), "network.lan%d.%s", unit, name);
+    return config_get_int(lanx_param);
+}
+
+int config_set_lan(int unit, const char *name, char *value)
+{
+    char lanx_param[128] = {0};
+    if (unit == LAN1_UNIT)
+        snprintf(lanx_param, sizeof(lanx_param), "network.lan.%s", name);
+    else
+        snprintf(lanx_param, sizeof(lanx_param), "network.lan%d.%s", unit, name);
+    return config_set(lanx_param, value);
+}
+
+int config_set_lan_int(int unit, const char *name, int value)
+{
+    char lanx_param[128] = {0};
+    if (unit == LAN1_UNIT)
+        snprintf(lanx_param, sizeof(lanx_param), "network.lan.%s", name);
+    else
+        snprintf(lanx_param, sizeof(lanx_param), "network.lan%d.%s", unit, name);
+    return config_set_int(lanx_param, value);    
+}
+
 char *config_get_wan6(int unit, const char *name)
 {
     char wanx_param[128] = {0};
@@ -178,6 +219,70 @@ char *get_wan_ifname(int unit)
     }
 }
 
+void _uci_add_intf_wan(int unit)
+{
+    char wanx_sec[128];
+
+    if (unit == WAN1_UNIT)
+    {
+        snprintf(wanx_sec, sizeof(wanx_sec), "network.wan");
+    }
+    else
+    {
+        snprintf(wanx_sec, sizeof(wanx_sec), "network.wan%d", unit);
+    }
+    
+    config_set(wanx_sec, "interface");
+}
+
+void _uci_del_intf_wan(int unit)
+{
+    char wanx_sec[128];
+
+    if (unit == LAN1_UNIT)
+    {
+        snprintf(wanx_sec, sizeof(wanx_sec), "network.wan");
+    }
+    else
+    {
+        snprintf(wanx_sec, sizeof(wanx_sec), "network.wan%d", unit);
+    }
+
+    config_unset(wanx_sec);
+}
+
+void _uci_add_intf_lan(int unit)
+{
+    char lanx_sec[128];
+
+    if (unit == LAN1_UNIT)
+    {
+        snprintf(lanx_sec, sizeof(lanx_sec), "network.lan");
+    }
+    else
+    {
+        snprintf(lanx_sec, sizeof(lanx_sec), "network.lan%d", unit);
+    }
+    
+    config_set(lanx_sec, "interface");
+}
+
+void _uci_del_intf_lan(int unit)
+{
+    char lanx_sec[128];
+
+    if (unit == LAN1_UNIT)
+    {
+        snprintf(lanx_sec, sizeof(lanx_sec), "network.lan");
+    }
+    else
+    {
+        snprintf(lanx_sec, sizeof(lanx_sec), "network.lan%d", unit);
+    }
+
+    config_unset(lanx_sec);
+}
+
 #define ADP_NTWK
 
 int libgw_get_lan_cfg(char *lan, lan_cfg_t *cfg)
@@ -196,8 +301,8 @@ int libgw_get_lan_cfg(char *lan, lan_cfg_t *cfg)
     }
 
     strncpy(cfg->lan, lan, sizeof(cfg->lan) - 1);
-    strncpy(cfg->ipaddr, config_get(LAN1_IPADDR), sizeof(cfg->ipaddr) - 1);
-    strncpy(cfg->netmask, config_get(LAN1_NETMASK), sizeof(cfg->netmask) - 1);
+    strncpy(cfg->ipaddr, config_get_lan(unit, LAN_IPADDR), sizeof(cfg->ipaddr) - 1);
+    strncpy(cfg->netmask, config_get_lan(unit, LAN_NETMASK), sizeof(cfg->netmask) - 1);
 
     ignore = config_get_int(LAN1_DHCP_IGNORE);
     cfg->dhcpd_enable = ((ignore == 0) ? 1 : 0);
@@ -222,12 +327,15 @@ int libgw_get_lan_cfg(char *lan, lan_cfg_t *cfg)
 
 int libgw_set_lan_cfg(char *lan, lan_cfg_t *cfg)
 {
+    int unit;
     int start, limit;
     uint32_t ip, mask;
     uint32_t ip1, ip2;
 
-    config_set(LAN1_IPADDR, cfg->ipaddr);
-    config_set(LAN1_NETMASK, cfg->netmask);
+    unit = get_lan_unit(lan);
+
+    config_set_lan(unit, LAN_IPADDR, cfg->ipaddr);
+    config_set_lan(unit, LAN_NETMASK, cfg->netmask);
 
     ip = inet_addr(cfg->ipaddr);
     mask = inet_addr(cfg->netmask);
@@ -614,7 +722,6 @@ int parse_dualwan_config(cJSON *params, dualwan_cfg_t *cfg)
     return 0;
 }
 
-
 #define API_NTWK
 
 int get_lan_config(cgi_request_t *req, cgi_response_t *resp)
@@ -717,6 +824,62 @@ out:
     }
     
     return ret;
+}
+
+int lan_intf_add(cJSON *params)
+{
+    return 0;
+}
+
+int lan_intf_edit(cJSON *params)
+{
+    return 0;
+}
+
+int lan_intf_del(cJSON *params)
+{
+    return 0;
+}
+
+int lan_interface_config(cgi_request_t *req, cgi_response_t *resp)
+{
+    int ret = 0;
+    int method = 0;
+    cJSON *params = NULL;
+
+    ret = param_init(req->post_data, &method, &params);
+    if (ret < 0)
+    {   
+        cgi_errno = CGI_ERR_PARAM;
+        goto out;
+    }
+    
+    switch(method)
+    {
+        case CGI_ADD:
+            ret = lan_intf_add(params);
+            break;
+        case CGI_SET:
+            ret = lan_intf_edit(params);
+            break;
+        case CGI_DEL:
+            ret = lan_intf_del(params);
+            break;
+        default:
+            cgi_errno = CGI_ERR_NOT_FOUND;
+            break;
+    }    
+
+out:
+    param_free();
+
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    }
+
+    return 0;
 }
 
 int set_lan_config(cgi_request_t *req, cgi_response_t *resp)
@@ -1047,8 +1210,33 @@ int set_wan6_config(cgi_request_t *req, cgi_response_t *resp)
     return 0;
 }
 
+/* 多WAN状态 */
 int get_dualwan_status(cgi_request_t *req, cgi_response_t *resp)
 {
+    int ret = 0;
+    int dualwan = 0;
+
+    dualwan = config_get(DUALWAN_ENABLED);
+    if (!dualwan)
+    {
+        cgi_errno = CGI_DUALWAN_DISABLED;
+        goto out;
+    }
+
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"dualwan\":[");
+    webs_write(req->out, "{\"interface\":\"WAN1\",\"state\":\"down\"}");
+    webs_write(req->out, ",{\"interface\":\"WAN1\",\"state\":\"down\"}");
+    webs_write(req->out, "}}");    
+
+out:
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    }    
+
     return 0;
 }
 

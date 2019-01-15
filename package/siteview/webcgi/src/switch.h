@@ -40,12 +40,6 @@ struct vlan_alias {
     struct list_head list;
 };
 
-struct port_alias {
-    int port;
-    char name[33];
-    struct list_head list;
-};
-
 struct switch_vlan {
     int vlan_entry;
     vlan_t pvid[MAX_PHY_PORT];
@@ -53,7 +47,6 @@ struct switch_vlan {
     pbmp_t vlan_bmp[MAX_VLAN_ENTRY];
     pbmp_t t_vlan_bmp[MAX_VLAN_ENTRY];
     struct list_head vlans;
-    struct list_head ports;
 };
 
 typedef struct {

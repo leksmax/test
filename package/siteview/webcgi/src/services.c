@@ -435,6 +435,7 @@ int set_upnpd_config(cgi_request_t *req, cgi_response_t *resp)
 	{
 		unlink(UPNPD_RULE_DATA_FILE);
 	}
+	
     fork_exec(1, "/etc/init.d/miniupnpd restart");
     
 out:

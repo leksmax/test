@@ -28,6 +28,9 @@ define Package/webcgi/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/network.cli $(1)/usr/sbin/
 	$(INSTALL_DIR) $(1)/etc/config
 	$(CP) ./files/webcgi.config $(1)/etc/config/webcgi
+	$(CP) ./files/route.config $(1)/etc/config/route
+	$(CP) ./files/switch.config $(1)/etc/config/switch
+	$(CP) ./files/firewall_ext.config $(1)/etc/config/firewall_ext
 	$(INSTALL_DIR) $(1)/www
 	$(CP) ./files/upload.html $(1)/www/
 	$(INSTALL_DIR) $(1)/etc/uci-defaults

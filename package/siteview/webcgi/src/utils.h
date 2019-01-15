@@ -29,6 +29,8 @@ enum CGI_ERRNO {
     CGI_ERR_FW_CHECK = 191,         /* 固件检查失败 */
     CGI_ERR_FW_NOT_FOUND = 192,     /* 找不到固件 */
 
+    CGI_DUALWAN_DISABLED = 210,     /* dualwan功能为开启 */
+
     CGI_ERR_AUTH_REQUIRED = 401,    /* 需要登录 */
     CGI_ERR_AUTH_TIMEOUT = 402,     /* 登录超时 */
     CGI_ERR_AUTH_CHECK = 403,       /* 用户名或密码错误 */

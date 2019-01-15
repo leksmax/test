@@ -25,7 +25,7 @@
 #include <errno.h>
 
 #include <mtd-abi.h>
-#include "flash_mtd.h"
+#include "shared.h"
 
 #ifndef ROUNDUP
 #define ROUNDUP(x, y)		((((x)+((y)-1))/(y))*(y))
@@ -158,7 +158,7 @@ flash_mtd_read(const char *mtd_part, int offset, unsigned char *buf, size_t coun
 	ret = 0;
 
 	if (((size_t)offset + count) > mi.size) {
-		fprintf(stderr, "%s: out of MTD partition (offset: 0x%x, count: 0x%x, %s size: 0x%x)\n",
+		fprintf(stderr, "%s: out of MTD partition (offset: 0x%x, count: 0x%lx, %s size: 0x%x)\n",
 			__func__, offset, count, mi.dev, mi.size);
 		ret = -3;
 		goto out_err;
@@ -173,7 +173,7 @@ flash_mtd_read(const char *mtd_part, int offset, unsigned char *buf, size_t coun
 
 	r_len = read_safe(fd, buf, count);
 	if (r_len < 0) {
-		fprintf(stderr, "%s: failed to read %u bytes from %s (errno: %d)\n",
+		fprintf(stderr, "%s: failed to read %lu bytes from %s (errno: %d)\n",
 			__func__, count, mi.dev, errno);
 		ret = -4;
 		goto out_err;
@@ -212,7 +212,7 @@ flash_mtd_write(const char *mtd_part, int offset, unsigned char *buf, size_t cou
 	ret = 0;
 
 	if (((size_t)offset + count) > mi.size) {
-		fprintf(stderr, "%s: out of MTD partition (offset: 0x%x, count: 0x%x, %s size: 0x%x)\n",
+		fprintf(stderr, "%s: out of MTD partition (offset: 0x%x, count: 0x%lx, %s size: 0x%x)\n",
 			__func__, offset, count, mi.dev, mi.size);
 		ret = -3;
 		goto out_err;
@@ -231,7 +231,7 @@ flash_mtd_write(const char *mtd_part, int offset, unsigned char *buf, size_t cou
 		
 		if (offset != old_offset || count != old_count) {
 			if (((size_t)offset + count) > mi.size) {
-				fprintf(stderr, "%s: out of UBI partition. (aligned offset: 0x%x, count: 0x%x, %s size: 0x%x)\n",
+				fprintf(stderr, "%s: out of UBI partition. (aligned offset: 0x%x, count: 0x%lx, %s size: 0x%x)\n",
 					__func__, offset, count, mi.dev, mi.size);
 				ret = -3;
 				goto out_err;
@@ -239,7 +239,7 @@ flash_mtd_write(const char *mtd_part, int offset, unsigned char *buf, size_t cou
 			
 			tmp_ubi = malloc(count);
 			if (!tmp_ubi) {
-				fprintf(stderr, "%s: failed to alloc memory for %u bytes\n",
+				fprintf(stderr, "%s: failed to alloc memory for %lu bytes\n",
 					__func__, count);
 				ret = -1;
 				goto out_err;

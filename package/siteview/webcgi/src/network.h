@@ -9,9 +9,10 @@
 #define ADDR6_LEN 46
 #define ETHER_LEN 18
 
-#define LAN1_IPADDR         ("network.lan.ipaddr")
-#define LAN1_NETMASK        ("network.lan.netmask")
-#define LAN1_MACADDR        ("network.lan.macaddr")
+#define LAN_IPADDR         ("ipaddr")
+#define LAN_NETMASK        ("netmask")
+#define LAN_MACADDR        ("macaddr")
+#define LAN_VLAN           ("vlan")
 
 #define LAN1_DHCP_IGNORE    ("dhcp.lan.ignore")
 #define LAN1_DHCP_START     ("dhcp.lan.start")
@@ -71,6 +72,7 @@ typedef struct {
     char dhcpd_start[ADDR4_LEN];
     char dhcpd_end[ADDR4_LEN];
     char macaddr[ETHER_LEN];
+    char vlan;
 } lan_cfg_t;
 
 typedef struct {
@@ -86,6 +88,7 @@ typedef struct {
     char dns1[ADDR4_LEN];
     char dns2[ADDR4_LEN];
     char macaddr[ETHER_LEN];
+    int vlan;
 } wan_cfg_t;
 
 typedef struct {
@@ -120,12 +123,26 @@ typedef struct {
     int weight2;
 } dualwan_cfg_t;
 
+struct network_state {
+
+    int lan_num;
+    struct list_head lans;
+
+    int wan_num;
+    struct list_head wans;
+    
+    int vpn_num;
+    struct list_head vpns;
+};
+
 int get_interface_lan(cgi_request_t * req, cgi_response_t * resp);
 int get_interface_wan(cgi_request_t * req, cgi_response_t * resp);
 
 int get_lan_config(cgi_request_t * req, cgi_response_t * resp);
 int set_lan_config(cgi_request_t * req, cgi_response_t * resp);
 int get_lan_status(cgi_request_t * req, cgi_response_t * resp);
+
+int lan_interface_config(cgi_request_t * req, cgi_response_t * resp);
 
 int get_wan_config(cgi_request_t * req, cgi_response_t * resp);
 int set_wan_config(cgi_request_t * req, cgi_response_t * resp);

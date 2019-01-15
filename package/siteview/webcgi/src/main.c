@@ -34,6 +34,7 @@
 #include "ipsec.h"
 #include "services.h"
 #include "status.h"
+#include "traffic_meter.h"
 
 int cgi_errno = CGI_ERR_OK;
 
@@ -52,18 +53,20 @@ static cgi_handler_t handlers[] = {
     /* status */
     { .url = "/get_system_info", .handler = get_system_info, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/get_system_status", .handler = get_system_status, .auth = PRIV_GUEST | PRIV_ADMIN }, /* cpu，内存，温度，当前时间, 运行时间 */
-    { .url = "/get_port_status", .handler = get_port_status, .auth = PRIV_GUEST | PRIV_ADMIN },  /* 端口状态，link，duplex，speed */
     { .url = "/get_attached_devices", .handler = get_attached_devices, .auth = PRIV_GUEST | PRIV_ADMIN },
+    /* switch */    
+    { .url = "/get_port_status", .handler = get_port_status, .auth = PRIV_GUEST | PRIV_ADMIN },  /* 端口状态，link，duplex，speed */
     /* vlan */
     { .url = "/get_vlan_entry", .handler = get_vlan_entry, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/vlan_entry_config", .handler = vlan_entry_config, .auth = PRIV_ADMIN },
-    //{ .url = "/port_vlan_list", .handler = port_vlan_list, .auth = PRIV_GUEST | PRIV_ADMIN },
-    //{ .url = "/port_vlan_config", .handler = port_vlan_config, .auth = PRIV_ADMIN },
+    { .url = "/port_vlan_list", .handler = port_vlan_list, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/port_vlan_config", .handler = port_vlan_config, .auth = PRIV_ADMIN },
     /* lan */
     { .url = "/get_interface_lan", .handler = get_interface_lan, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/get_lan_config", .handler = get_lan_config, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/set_lan_config", .handler = set_lan_config, .auth = PRIV_ADMIN },
     { .url = "/get_lan_status", .handler = get_lan_status, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/lan_interface_config", .handler = lan_interface_config, .auth = PRIV_ADMIN },    
     /* wan */
     { .url = "/get_interface_wan", .handler = get_interface_wan, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/get_wan_config", .handler = get_wan_config, .auth = PRIV_GUEST | PRIV_ADMIN },
@@ -124,6 +127,11 @@ static cgi_handler_t handlers[] = {
     { .url = "/get_ntp_config", .handler = get_ntp_config, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/set_ntp_config", .handler = set_ntp_config, .auth = PRIV_ADMIN },
     { .url = "/sync_current_time", .handler = sync_current_time, .auth = PRIV_ADMIN },
+	/* traffic meter */
+    { .url = "/get_traffic_meter_config", .handler = get_traffic_meter_config, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/set_traffic_meter_config", .handler = set_traffic_meter_config, .auth = PRIV_ADMIN },
+    { .url = "/get_traffic_meter_list", .handler = get_traffic_meter_list, .auth = PRIV_GUEST | PRIV_ADMIN },    
+    { .url = "/restart_counter", .handler = restart_counter, .auth = PRIV_ADMIN },    
     { /* terminating entry */ }
 };
 
