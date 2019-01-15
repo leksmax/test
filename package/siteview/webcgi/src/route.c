@@ -289,12 +289,12 @@ int static_route_del(cJSON *params)
     }
 
     jsonVal = rules->child;
-    while (jsonVal)
+    while (jsonVal && jsonVal->type == cJSON_Object)
     {
         ret = cjson_get_int(jsonVal, "id", &intVal);
         if (ret < 0)
         {
-            continue;
+            return CGI_ERR_CFG_PARAM;
         }
 
         list_for_each_entry_safe(st, tmp, &rs.st_routes, list)

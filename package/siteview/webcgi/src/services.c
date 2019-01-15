@@ -270,7 +270,7 @@ int libgw_get_upnp_rules(upnp_rule_t *upnp)
 			upnp[i].ext_port = eport;
 			upnp[i].in_port = iport;
 			
-			strncpy(upnp[i].in_ip4addr, ipaddr, sizeof(upnp[i].in_ip4addr));
+			memcpy(upnp[i].in_ip4addr, ipaddr, sizeof(upnp[i].in_ip4addr));
 			strncpy(upnp[i].proto, protocol, sizeof(upnp[i].proto));
 			strncpy(upnp[i].name, desc, sizeof(upnp[i].name));
 
@@ -318,16 +318,11 @@ int get_upnpd_rules(cgi_request_t *req, cgi_response_t *resp)
 
 int del_upnpd_rules(cgi_request_t *req, cgi_response_t *resp)
 {
-	int ret = CGI_ERR_OK, i = 0, num = 0, len = 0;
-	int method = 0, arr_size = 0;		
+	int ret = CGI_ERR_OK, len = 0;
+	int method = 0, externalPort = 0;		
 	char databuf[1024] = {0};
-	upnp_rule_t upnp[MAX_UPNP_RULES_NUM];
-    cJSON *params = NULL, *arr = NULL;
-	
-	for(i = 0; i < MAX_UPNP_RULES_NUM; i++)
-	{
-		memset(&upnp[i], 0x0, sizeof(upnp_rule_t));
-	}
+	char *protocol = NULL;
+    cJSON *params = NULL, *rules = NULL, *jsonVal = NULL;
 	
 	ret = param_init(req->post_data, &method, &params);
 	if (ret < 0)
@@ -336,25 +331,35 @@ int del_upnpd_rules(cgi_request_t *req, cgi_response_t *resp)
 		goto out;
 	}
 	
-	arr = cJSON_GetObjectItem(params, "nums");
-	if(NULL == arr)
+	rules = cJSON_GetObjectItem(params, "rules");
+	if(NULL == rules || rules->type != cJSON_Array)
 	{
 		cgi_errno = CGI_ERR_CFG_PARAM;
 		goto out;
 	}
 
-	num = libgw_get_upnp_rules(upnp);
-	arr_size = cJSON_GetArraySize(arr);
-	for(i = 0; i < arr_size; i ++)
-	{ 
-		cJSON *pSub = cJSON_GetArrayItem(arr, i);
-		if(pSub != NULL)
+	jsonVal = rules->child;
+
+	while(jsonVal && jsonVal->type == cJSON_Object)
+	{	
+		ret = cjson_get_int(jsonVal, "externalPort", &externalPort);
+		if(ret < 0)
 		{
-			if(pSub->valueint < num + 1)
-			{
-				len += snprintf(databuf+len, sizeof(databuf) - len, "%s %d\n", upnp[pSub->valueint - 1].proto, upnp[pSub->valueint - 1].ext_port);
-			}
-		}
+			cgi_errno = CGI_ERR_CFG_PARAM;
+			goto out;
+		}		
+		protocol = cjson_get_string(jsonVal, "protocol");
+		if(protocol == NULL)
+		{
+			cgi_errno = CGI_ERR_CFG_PARAM;
+			goto out;
+		}		
+        jsonVal = jsonVal->next;
+
+		if(jsonVal == NULL)
+			len += snprintf(databuf+len, sizeof(databuf) - len, "%s %d", protocol, externalPort);
+		else
+			len += snprintf(databuf+len, sizeof(databuf) - len, "%s %d\n", protocol, externalPort);
 	}
 	
 	if(strlen(databuf) != 0)
