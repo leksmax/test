@@ -386,7 +386,7 @@ int port_forward_del(cJSON *params)
         ret = cjson_get_int(jsonVal, "id", &intVal);
         if (ret < 0)
         {
-            continue;
+            return CGI_ERR_CFG_PARAM;
         }
 
         list_for_each_entry_safe(pf, tmp, &fw.pf_rules, list)
@@ -585,10 +585,15 @@ int port_trigger_del(cJSON *params)
     jsonVal = rules->child;
     while (jsonVal)
     {
+        if (jsonVal->type != cJSON_Object)
+        {
+            return CGI_ERR_CFG_PARAM;
+        }
+    
         ret = cjson_get_int(jsonVal, "id", &intVal);
         if (ret < 0)
         {
-            continue;
+            return CGI_ERR_CFG_PARAM;
         }
 
         list_for_each_entry_safe(pt, tmp, &fw.pt_rules, list)

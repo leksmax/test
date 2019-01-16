@@ -78,12 +78,12 @@ static cgi_handler_t handlers[] = {
     { .url = "/get_dualwan_status", .handler = get_dualwan_status, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/dualwan_check_config", .handler = dualwan_check_config, .auth = PRIV_ADMIN },
     /* ipv6 */
-    { .url = "/get_wan6_config", .handler = get_wan6_config, .auth = PRIV_ADMIN },
+    { .url = "/get_wan6_config", .handler = get_wan6_config, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/set_wan6_config", .handler = set_wan6_config, .auth = PRIV_ADMIN },
-    { .url = "/get_wan6_status", .handler = get_wan6_status, .auth = PRIV_ADMIN },
-    { .url = "/get_lan6_config", .handler = get_lan6_config, .auth = PRIV_ADMIN },
+    { .url = "/get_wan6_status", .handler = get_wan6_status, .auth = PRIV_GUEST | PRIV_ADMIN },
+    { .url = "/get_lan6_config", .handler = get_lan6_config, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/set_lan6_config", .handler = set_lan6_config, .auth = PRIV_ADMIN },
-    { .url = "/get_lan6_status", .handler = get_lan6_status, .auth = PRIV_ADMIN },
+    { .url = "/get_lan6_status", .handler = get_lan6_status, .auth = PRIV_GUEST | PRIV_ADMIN },
     /* wireless */
     { .url = "/get_regdmn_list", .handler = get_regdmn_list, .auth = PRIV_GUEST | PRIV_ADMIN },
     { .url = "/get_wifi_config", .handler = get_wifi_config, .auth = PRIV_GUEST | PRIV_ADMIN },

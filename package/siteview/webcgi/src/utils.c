@@ -70,7 +70,8 @@ int fork_exec(int wait, const char *fmt, ...)
 
 char *config_get(const char *name)
 {
-    int ret = -1;    
+    int ret = -1;
+    struct uci_element *e;
     struct uci_context *ctx = NULL;
     struct uci_ptr ptr;    
     char path[CONFIG_MAX_PARAM_LEN];
@@ -98,8 +99,16 @@ char *config_get(const char *name)
         goto out;
     }
 
-    strncpy(cfg_cache, ptr.o->v.string, CONFIG_MAX_VALUE_LEN - 1);
-
+    e = ptr.last;
+    if (e->type == UCI_TYPE_SECTION)
+    {
+        strncpy(cfg_cache, ptr.s->type, CONFIG_MAX_VALUE_LEN - 1);
+    }
+    else
+    {
+        strncpy(cfg_cache, ptr.o->v.string, CONFIG_MAX_VALUE_LEN - 1);
+    }
+    
 out:
     uci_free_context(ctx);
 

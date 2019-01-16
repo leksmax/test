@@ -79,7 +79,6 @@ int config_set_wan_int(int unit, const char *name, int value)
     return config_set_int(wanx_param, value);    
 }
 
-
 char *config_get_lan(int unit, const char *name)
 {
     char lanx_param[128] = {0};
@@ -146,6 +145,34 @@ int config_set_wan6_int(int unit, const char *name, int value)
     char wanx_param[128] = {0};
     snprintf(wanx_param, sizeof(wanx_param), "net6conf.wan%d.%s", unit, name);
     return config_set_int(wanx_param, value);    
+}
+
+char *config_get_dualwan(int unit, const char *name)
+{
+    char param[128] = {0};
+    snprintf(param, sizeof(param), "dualwan.wan%d.%s", unit, name);
+    return config_get(param);
+}
+
+int config_get_dualwan_int(int unit, const char *name)
+{
+    char param[128] = {0};
+    snprintf(param, sizeof(param), "dualwan.wan%d.%s", unit, name);
+    return config_get_int(param);
+}
+
+int config_set_dualwan(int unit, const char *name, char *value)
+{
+    char param[128] = {0};
+    snprintf(param, sizeof(param), "dualwan.wan%d.%s", unit, name);
+    return config_set(param, value);
+}
+
+int config_set_dualwan_int(int unit, const char *name, int value)
+{
+    char param[128] = {0};
+    snprintf(param, sizeof(param), "dualwan.wan%d.%s", unit, name);
+    return config_set_int(param, value);    
 }
 
 int get_lan_unit(char *name)
@@ -510,14 +537,61 @@ int libgw_get_dualwan_cfg(dualwan_cfg_t *cfg)
     return 0;
 }
 
+void _uci_enabled_wan2(int enabled)
+{
+    char tmp[20] = {0};
+    
+    strncpy(tmp, config_get("network.wan2"), sizeof(tmp) - 1);
+    
+    cgi_debug("tmp = %s\n", tmp);
+    if (tmp[0] == '\0')
+    {
+        cgi_debug("\n");
+
+        config_set("network.wan2", "interface");
+        config_set("network.wan2.ifname", "eth0.3");
+        config_set("network.wan2.proto", "dhcp");
+    }
+
+    cgi_debug("tmp = %s\n", tmp);
+
+    if (enabled)
+    {
+        cgi_debug("\n");
+
+        config_unset("network.wan2.disabled");
+    }
+    else
+    {
+    
+        cgi_debug("\n");
+        config_set("network.wan2.disabled", "1");
+    }
+
+    cgi_debug("\n");
+
+    config_commit("network");
+}
+
 int libgw_set_dualwan_cfg(char *wan, dualwan_cfg_t *cfg)
 {
     config_set_int(DUALWAN_ENABLED, cfg->enabled);
-    config_set(DUALWAN_PRIMARY, cfg->primary);
-    config_set(DUALWAN_SECONDARY, cfg->secondary);
-    config_set_int(DUALWAN_MODE, cfg->mode);
-    config_set_int(DUALWAN_WEIGHT1, cfg->weight1);
-    config_set_int(DUALWAN_WEIGHT2, cfg->weight2);
+
+    if (cfg->enabled == 1)
+    {
+        config_set(DUALWAN_PRIMARY, cfg->primary);
+        config_set(DUALWAN_SECONDARY, cfg->secondary);
+        config_set_int(DUALWAN_MODE, cfg->mode);
+
+        if (cfg->mode == 2)
+        {
+            config_set_int(DUALWAN_WEIGHT1, cfg->weight1);
+            config_set_int(DUALWAN_WEIGHT2, cfg->weight2);
+        }
+    }
+
+    _uci_enabled_wan2(cfg->enabled);
+    
     config_commit("dualwan");
 
     return 0;   
@@ -685,6 +759,13 @@ int parse_dualwan_config(cJSON *params, dualwan_cfg_t *cfg)
         return -1;
     }
 
+    cfg->enabled = intVal;
+
+    if (intVal == 0)
+    {
+        return 0;
+    }
+
     strVal = cjson_get_string(params, "primary");
     if (!strVal)
     {
@@ -707,20 +788,72 @@ int parse_dualwan_config(cJSON *params, dualwan_cfg_t *cfg)
         return -1;
     }    
 
-    ret = cjson_get_int(params, "weight1", &cfg->weight1);
-    if (ret < 0)
+    if (cfg->mode == 2)
     {
-        return -1;
-    }
+        ret = cjson_get_int(params, "weight1", &cfg->weight1);
+        if (ret < 0)
+        {
+            return -1;
+        }
 
-    ret = cjson_get_int(params, "weight2", &cfg->weight2);
-    if (ret < 0)
-    {
-        return -1;
+        ret = cjson_get_int(params, "weight2", &cfg->weight2);
+        if (ret < 0)
+        {
+            return -1;
+        }
     }
-
     return 0;
 }
+
+int parse_dualwan_failover_config(cJSON *params, dualwan_failover_cfg_t *cfg)
+{
+    int ret = 0;
+    char *strVal = NULL;
+    int intVal = 0;
+
+    strVal = cjson_get_string(params, "interface");
+    if (!strVal)
+    {
+        return -1;
+    }
+    
+    strncpy(cfg->interface, strVal, sizeof(cfg->interface) - 1);
+
+    ret = cjson_get_int(params, "interval", &intVal);
+    if (ret < 0)
+    {
+        return -1;
+    }
+
+    cfg->interval = intVal;
+
+    ret = cjson_get_int(params, "times", &intVal);
+    if (ret < 0)
+    {
+        return -1;
+    }
+
+    cfg->times = intVal;
+
+    strVal = cjson_get_string(params, "target");
+    if (!strVal)
+    {
+        return -1;
+    }
+
+    strncpy(cfg->target, strVal, sizeof(cfg->target) - 1);
+
+    strVal = cjson_get_string(params, "ipaddr");
+    if (!strVal)
+    {
+        return -1;
+    }
+
+    strncpy(cfg->ipaddr, strVal, sizeof(cfg->ipaddr) - 1);
+    
+    return 0;
+}
+
 
 #define API_NTWK
 
@@ -930,8 +1063,9 @@ int get_wan_config(cgi_request_t *req, cgi_response_t *resp)
 {
     int ret = 0;
     int method = 0;
+    int getall = 0;
     cJSON *params = NULL;
-    char *strVal = NULL;
+    char *wan_name = NULL;
     wan_cfg_t cfg;
     
     ret = param_init(req->post_data, &method, &params);
@@ -941,30 +1075,50 @@ int get_wan_config(cgi_request_t *req, cgi_response_t *resp)
         goto out;
     }
 
-    strVal = cjson_get_string(params, "wan");
-    if (!strVal)
+    wan_name = cjson_get_string(params, "wan");
+    if (!wan_name || wan_name[0] == '\0')
     {    
-        cgi_errno = CGI_ERR_CFG_PARAM;
-        goto out;
+        getall = 1;
     }
 
     memset(&cfg, 0x0, sizeof(wan_cfg_t));
-
-    ret = libgw_get_wan_cfg("WAN1", &cfg);
-    if (ret < 0)
-    {    
-        cgi_errno = CGI_ERR_CFG_PARAM;
-        goto out;
-    }
     
     webs_json_header(req->out);
     webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
-    webs_write(req->out, "\"interface\":[{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
-            "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
-            "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\"}]",
-            cfg.wan, cfg.proto, cfg.ipaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
-            cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2);
-    webs_write(req->out, "}}");
+
+    webs_write(req->out, "\"interface\":["); 
+
+    if (getall == 0)
+    {
+        libgw_get_wan_cfg(wan_name, &cfg);
+
+        webs_write(req->out, "{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
+                "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
+                "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\"}",
+                cfg.wan, cfg.proto, cfg.ipaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
+                cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2);
+    }
+    else
+    {
+        libgw_get_wan_cfg("WAN1", &cfg);
+
+        webs_write(req->out, "{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
+                "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
+                "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\"}",
+                cfg.wan, cfg.proto, cfg.ipaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
+                cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2);
+
+        libgw_get_wan_cfg("WAN2", &cfg);
+        
+        webs_write(req->out, ",{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
+                "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
+                "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\"}",
+                cfg.wan, cfg.proto, cfg.ipaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
+                cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2);
+
+    }
+    
+    webs_write(req->out, "]}}");
 out:
     
     param_free();
@@ -1227,7 +1381,7 @@ int get_dualwan_status(cgi_request_t *req, cgi_response_t *resp)
     webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
     webs_write(req->out, "\"dualwan\":[");
     webs_write(req->out, "{\"interface\":\"WAN1\",\"state\":\"down\"}");
-    webs_write(req->out, ",{\"interface\":\"WAN1\",\"state\":\"down\"}");
+    webs_write(req->out, ",{\"interface\":\"WAN2\",\"state\":\"down\"}");
     webs_write(req->out, "}}");    
 
 out:
@@ -1287,13 +1441,6 @@ int set_dualwan_config(cgi_request_t *req, cgi_response_t *resp)
         goto out;
     }
 
-    wan = cjson_get_string(params, "wan");
-    if (!wan)
-    {
-        cgi_errno = CGI_ERR_CFG_PARAM;
-        goto out;
-    }
-
     memset(&cfg, 0x0, sizeof(dualwan_cfg_t));
 
     ret = parse_dualwan_config(params, &cfg);
@@ -1305,7 +1452,7 @@ int set_dualwan_config(cgi_request_t *req, cgi_response_t *resp)
 
     libgw_set_dualwan_cfg(wan, &cfg);
 
-    fork_exec(1, "/etc/init.d/dualwan restart");
+    //fork_exec(1, "/etc/init.d/dualwan restart");
 
 out:
     param_free();
@@ -1316,8 +1463,134 @@ out:
     return 0;
 }
 
+int libgw_get_dualwan_failover_cfg(char *wan, dualwan_failover_cfg_t *cfg)
+{
+    int unit = 0;
+
+    unit = get_wan_unit(wan);
+    
+    cfg->interval = config_get_dualwan_int(unit, "interval");
+    cfg->times = config_get_dualwan_int(unit, "times");
+    strncpy(cfg->target, config_get_dualwan(unit, "target"), sizeof(cfg->target));
+    strncpy(cfg->ipaddr, config_get_dualwan(unit, "ipaddr"), sizeof(cfg->ipaddr));
+
+    return 0;
+}
+
+int libgw_set_dualwan_failover_cfg(char *wan, dualwan_failover_cfg_t *cfg)
+{
+    int unit = 0;
+
+    unit = get_wan_unit(wan);
+    config_set_dualwan_int(unit, "interval", cfg->interval);
+    config_set_dualwan_int(unit, "times", cfg->times);
+    config_set_dualwan(unit, "target", cfg->target);
+    config_set_dualwan(unit, "ipaddr", cfg->ipaddr);
+
+    config_commit("dualwan");
+
+    return 0;
+}
+
+int get_dualwan_check_config(cgi_request_t *req, cJSON *params)
+{
+    int ret = 0;
+    int getall = 0;
+    char *wan_name = NULL;
+    int unit = 0;
+    dualwan_failover_cfg_t cfg;
+
+    wan_name = cjson_get_string(params, "wan");
+    if (!wan_name || wan_name[0] == '\0')
+    {
+        getall = 1;
+    }
+
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+    webs_write(req->out, "\"dualwan\":[");
+    
+    if (getall == 0)
+    {
+        memset(&cfg, 0x0, sizeof(dualwan_failover_cfg_t));
+        libgw_get_dualwan_failover_cfg(wan_name, &cfg);        
+        webs_write(req->out, "{\"interface\":\"%s\",\"interval\":%d,\"times\":%d,\"target\":\"%s\",\"ipaddr\":\"%s\"}",
+            wan_name, cfg.interval, cfg.times, cfg.target, cfg.ipaddr);
+    }
+    else if (getall == 1)
+    {
+        libgw_get_dualwan_failover_cfg("WAN1", &cfg);        
+        webs_write(req->out, "{\"interface\":\"%s\",\"interval\":%d,\"times\":%d,\"target\":\"%s\",\"ipaddr\":\"%s\"}",
+            "WAN1", cfg.interval, cfg.times, cfg.target, cfg.ipaddr);        
+
+        libgw_get_dualwan_failover_cfg("WAN2", &cfg);        
+        webs_write(req->out, ",{\"interface\":\"%s\",\"interval\":%d,\"times\":%d,\"target\":\"%s\",\"ipaddr\":\"%s\"}",
+            "WAN2", cfg.interval, cfg.times, cfg.target, cfg.ipaddr);
+    }
+
+    webs_write(req->out, "]}}");
+
+    return CGI_ERR_OK;
+}
+
+int set_dualwan_check_config(cgi_request_t *req, cJSON *params)
+{
+    int ret = 0;
+    dualwan_failover_cfg_t cfg;
+
+    memset(&cfg, 0x0, sizeof(dualwan_failover_cfg_t));
+
+    ret = parse_dualwan_failover_config(params, &cfg);
+    if (ret < 0)
+    {
+        return CGI_ERR_CFG_PARAM;
+    }
+
+    libgw_set_dualwan_failover_cfg(cfg.interface, &cfg);
+
+    //fork_exec(1, "/etc/init.d/dualwan restart");
+
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    
+    return CGI_ERR_OK;
+}
+
 int dualwan_check_config(cgi_request_t *req, cgi_response_t *resp)
 {
+    int ret = 0;
+    int method = 0;
+    cJSON *params = NULL;
+
+    ret = param_init(req->post_data, &method, &params);
+    if (ret < 0)
+    {   
+        cgi_errno = CGI_ERR_PARAM;
+        goto out;
+    }
+    
+    switch(method)
+    {
+        case CGI_GET:
+            cgi_errno = get_dualwan_check_config(req, params);
+            break;
+        case CGI_SET:
+            cgi_errno = set_dualwan_check_config(req, params);
+            break;
+        default:
+            cgi_errno = CGI_ERR_NOT_FOUND;
+            break;
+    }
+
+out:
+    param_free();
+
+    if (cgi_errno != CGI_ERR_OK)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+    }
+    
     return 0;
 }
 
@@ -1352,5 +1625,3 @@ int get_interface_wan(cgi_request_t *req, cgi_response_t *resp)
     
     return 0;
 }
-
-

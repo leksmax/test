@@ -1,0 +1,21 @@
+
+config dualwan
+    option enabled '0'
+    option primary 'WAN1'
+    option secondary 'WAN2'
+    option mode '1'
+    option weight '1'
+    option weight '1'
+
+config failover 'wan1'
+    option interval '5'
+    option times '3'
+    option target 'gateway'
+    option ipaddr '8.8.8.8'
+
+config failover 'wan2'
+    option interval '5'
+    option times '3'
+    option target 'gateway'
+    option ipaddr '8.8.8.8'
+

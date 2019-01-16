@@ -12,6 +12,8 @@ extern int cgi_errno;
 #define CONFIG_MAX_PARAM_LEN	64
 #define CONFIG_MAX_VALUE_LEN	4096
 
+#define IS_ENABLED 1
+
 enum CGI_ERRNO {
     CGI_ERR_OK = 0,
         

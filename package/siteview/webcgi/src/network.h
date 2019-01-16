@@ -123,6 +123,14 @@ typedef struct {
     int weight2;
 } dualwan_cfg_t;
 
+typedef struct {
+    char interface[10];
+    int interval;
+    int times;
+    char target[10];
+    char ipaddr[16];
+} dualwan_failover_cfg_t;
+
 struct network_state {
 
     int lan_num;
