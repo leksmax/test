@@ -1,0 +1,5 @@
+#!/bin/sh
+
+[ "$ACTION" = "ifup" ] && {
+	[ -e "/usr/sbin/networkmap" ] && /etc/init.d/networkmap restart
+}
