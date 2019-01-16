@@ -1,6 +1,6 @@
 #!/bin/sh
 
-/* clean traffic meter data */
+#clean traffic meter data
 if [ -e /usr/sbin/traffic_meter ]; then
 	traffic_meter cleandataflash
 fi
