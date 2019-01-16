@@ -1,14 +1,6 @@
 #!/bin/sh
 # Copyright (C) 2009 OpenWrt.org
 
-setup_switch_dev() {
-	local name
-	config_get name "$1" name
-	name="${name:-$1}"
-	[ -d "/sys/class/net/$name" ] && ifconfig "$name" up
-	swconfig dev "$name" load network
-}
-
 gen_random_mac() {
     echo "00:03:7f:$(hexdump -n 4 /dev/urandom | awk 'NR==1 {print $2$3}' \
 			| sed 's/../&:/g' | cut -c 1-8)"
@@ -42,7 +34,6 @@ load_default_mac() {
 setup_switch() {
 
 	load_default_mac
-
-	config_load network
-	config_foreach setup_switch_dev switch
+	
+	/sbin/sysinit switch
 }
