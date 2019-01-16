@@ -188,7 +188,7 @@ void dump_traffic_data(struct traffic_stat_t data)
 
 void dump_traffic_stat(struct traffic_stat data, char *name)
 {
-	//if(debug_flag == 1)
+	if(debug_flag == 1)
 	{
 		printf("######################################################################################\n");
 		printf("%s: %llu %llu %llu %s\n", name, data.u_b, data.d_b, data.t_b, asctime(&data.tm_l));

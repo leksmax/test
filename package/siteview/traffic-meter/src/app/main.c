@@ -9,6 +9,7 @@
 #include "utils.h"
 
 static int daemon_flag = 1;
+static int clear_data_flag = 0;
 int debug_flag = 0;
 
 static struct traffic_param_t g_param;
@@ -115,7 +116,7 @@ void sig_handler(int signo)
 			handle_over_limit_bytes(HANDLE_OPEN);
 			break;
 		case SIGUSR2:
-			clear_all_traffic_data();
+			clear_data_flag = 1;
 			break;
 		default:
 			return ;
@@ -653,8 +654,9 @@ void check_data_is_limit_paramter()
 	get_current_systime(&today);
 
 	zero_time = today.tm_mday * 24 * 3600 + today.tm_hour * 3600 + today.tm_min * 60 + today.tm_sec;
-	if(zero_time == g_param.zero_sec)
+	if(zero_time == g_param.zero_sec || clear_data_flag == 1)
 	{
+		clear_data_flag = 0;
 		clear_all_traffic_data();
 	}
 }
