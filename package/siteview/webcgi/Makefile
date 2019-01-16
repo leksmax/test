@@ -23,18 +23,15 @@ endef
 define Package/webcgi/install
 	$(INSTALL_DIR) $(1)/www/cgi-bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/web-cgi $(1)/www/cgi-bin/
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/upgrade.cgi $(1)/www/cgi-bin/
+	$(INSTALL_BIN) ./files/www/cgi-bin/upgrade.cgi $(1)/www/cgi-bin/
 	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/network.cli $(1)/usr/sbin/
+	$(INSTALL_BIN) ./files/usr/sbin/network.cli $(1)/usr/sbin/
 	$(INSTALL_DIR) $(1)/etc/config
-	$(CP) ./files/webcgi.config $(1)/etc/config/webcgi
-	$(CP) ./files/route.config $(1)/etc/config/route
-	$(CP) ./files/switch.config $(1)/etc/config/switch
-	$(CP) ./files/firewall_ext.config $(1)/etc/config/firewall_ext
+	$(CP) ./files/etc/config/* $(1)/etc/config/
 	$(INSTALL_DIR) $(1)/www
-	$(CP) ./files/upload.html $(1)/www/
+	$(CP) ./files/www/* $(1)/www/
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
-	$(INSTALL_BIN) ./files/33_migrate_wifi $(1)/etc/uci-defaults
+	$(INSTALL_BIN) ./files/etc/uci-defaults/* $(1)/etc/uci-defaults/
 endef
 
 $(eval $(call BuildPackage,webcgi))
