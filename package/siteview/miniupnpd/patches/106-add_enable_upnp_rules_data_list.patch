@@ -1013,7 +1013,7 @@ Index: miniupnpd-1.9.20150609/upnpdatalist.c
 +
 +	if(access("/etc/upnp", F_OK) == -1)
 +	{
-+		mkdir("/etc/upnp", 0x755);
++		mkdir("/etc/upnp", 0755);
 +	}
 +
 +	reload_data_from_file(UPNP_DATA_LIST_PATHFILE);
