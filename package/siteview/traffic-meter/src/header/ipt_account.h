@@ -7,7 +7,7 @@
 #include <ipt_match_account.h>
 #include <account_sockopt.h>
 
-#define DEBUG_IPT_ACCONT
+//#define DEBUG_IPT_ACCONT
 #ifdef DEBUG_IPT_ACCONT
 #define ACCOUNT_DEBUG_PRINTK(format, arg...) printk(KERN_INFO "[%s:%05d]: " format, __FUNCTION__, __LINE__, ##arg);
 #else
