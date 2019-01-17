@@ -64,12 +64,23 @@ boot() {
 
 start() {
 	config_load "upnpd"
-	local extiface intiface upload download logging secure enabled natpmp
+	
+	local enabled time_to_live interval
+	
+	local extiface intiface upload download logging
 	local extip port usesysuptime conffile serial_number model_number
-	local uuid notify_interval presentation_url enable_upnp
+	local uuid notify_interval presentation_url
 	local upnp_lease_file clean_ruleset_threshold clean_ruleset_interval
-        local ipv6_listening_ip time_to_live
+    local ipv6_listening_ip
 
+	config_get enabled config enabled
+	
+	if [ "x$enabled" == "x0" ]; then
+		exit
+	fi
+	
+	config_get time_to_live config time_to_live
+	config_get interval config interval
 	config_get extiface config external_iface
 	config_get extzone config external_zone
 	config_get intiface config internal_iface
@@ -82,7 +93,6 @@ start() {
 	config_get serial_number config serial_number
 	config_get model_number config model_number
 	config_get uuid config uuid
-	config_get notify_interval config notify_interval
 	config_get presentation_url config presentation_url
 	config_get upnp_lease_file config upnp_lease_file
 	config_get clean_ruleset_threshold config clean_ruleset_threshold
@@ -96,16 +106,16 @@ start() {
 
 	local ifname
 
-        # manual external interface overrides everything
-        if [ -z "$extiface" ] ; then
-            # manual external zone (if dynamically find interfaces
-            # belonging to it) overrides network_find_wan*
-            if [ -n "$extzone" ] ; then
-                ifname=$(fw3 -q zone $extzone | head -1)
-            fi
-            [ -n "$extiface" ] || network_find_wan extiface
-            [ -n "$extiface" ] || network_find_wan6 extiface
-        fi
+	# manual external interface overrides everything
+	if [ -z "$extiface" ] ; then
+		# manual external zone (if dynamically find interfaces
+		# belonging to it) overrides network_find_wan*
+		if [ -n "$extzone" ] ; then
+			ifname=$(fw3 -q zone $extzone | head -1)
+		fi
+		[ -n "$extiface" ] || network_find_wan extiface
+		[ -n "$extiface" ] || network_find_wan6 extiface
+	fi
 
 	[ -n "$ifname" ] || network_get_device ifname ${extiface}
 
@@ -150,8 +160,8 @@ start() {
 		[ -n "${presentation_url}" ] && \
 			echo "presentation_url=${presentation_url}" >>$tmpconf
 
-		[ -n "${notify_interval}" ] && \
-			echo "notify_interval=$(($notify_interval * 60))" >>$tmpconf
+		[ -n "${interval}" ] && \
+			echo "notify_interval=$(($interval * 60))" >>$tmpconf
 
 		[ -n "${time_to_live}" ] && \
 			echo "time_to_live=${time_to_live}" >>$tmpconf
@@ -207,7 +217,7 @@ stop() {
 	iptables -t nat -F MINIUPNPD 2>/dev/null
 	iptables -t filter -F MINIUPNPD 2>/dev/null
 
-        [ -x /usr/sbin/ip6tables ] && {
+	[ -x /usr/sbin/ip6tables ] && {
 	    ip6tables -t filter -F MINIUPNPD 2>/dev/null
-        }
+	}
 }
