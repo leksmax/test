@@ -1,0 +1,5 @@
+#!/bin/sh
+
+/sbin/sysinit network_uci_defaults
+
+exit 0

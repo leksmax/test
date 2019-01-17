@@ -33,7 +33,13 @@ load_default_mac() {
 
 setup_switch() {
 
-	load_default_mac
-	
-	/sbin/sysinit switch
+    load_default_mac
+
+    # vlan
+    /sbin/sysinit switch
+    
+    sleep 1
+
+    # interface
+    /sbin/sysinit interface
 }

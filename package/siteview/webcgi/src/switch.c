@@ -910,7 +910,7 @@ int vlan_entry_config(cgi_request_t *req, cgi_response_t *resp)
     if (cgi_errno == CGI_ERR_OK)
     {
         switch_config_commit();
-        //fork_exec(1, "/etc/init.d/switch restart");
+        fork_exec(1, "/usr/sbin/sysinit switch"); /* 临时 */
     }
     
 out:

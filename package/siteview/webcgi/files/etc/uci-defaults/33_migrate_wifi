@@ -40,7 +40,6 @@ migrate_wifi(){
 	$UCI set ${WL5G_IFACE_PREFIX}.wmm="1"
 	$UCI set ${WL5G_IFACE_PREFIX}.countryie="1"
 	$UCI set ${WL5G_IFACE_PREFIX}.bintval="100"
-
 }
 
 board=$(ipq806x_board_name)
