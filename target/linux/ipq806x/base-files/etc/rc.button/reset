@@ -1,5 +1,4 @@
-#
-/bin/sh
+#!/bin/sh
 
 [ "${ACTION}" = "released" ] || exit 0
 
@@ -15,7 +14,7 @@ then
 elif [ "$SEEN" -gt 5 ]
 then
 	echo "FACTORY RESET" > /dev/console
-	firstboot && reboot &
+	firstboot && reboot
 fi
 
 return 0
