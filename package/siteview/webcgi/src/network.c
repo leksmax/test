@@ -10,6 +10,18 @@
 #include "webcgi.h"
 #include "network.h"
 
+/*
+    lan:
+        br-lan
+        br-lan1
+        br-lan2
+        br-lan3
+
+    wan:
+        ethwan1
+        ethwan2
+ */
+
 const char *lan_names[_LAN_UNIT_MAX] = {
     "(error)",
     "LAN1",
@@ -1088,7 +1100,7 @@ int get_wan_config(cgi_request_t *req, cgi_response_t *resp)
 
         libgw_get_wan_cfg("WAN2", &cfg);
         
-        webs_write(req->out, "{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\",\"macaddr\":\"%s\","
+        webs_write(req->out, ",{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\",\"macaddr\":\"%s\","
                 "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
                 "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\",\"vlan\":%d}",
                 cfg.wan, cfg.proto, cfg.ipaddr, cfg.macaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 

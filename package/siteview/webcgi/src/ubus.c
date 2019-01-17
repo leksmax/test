@@ -298,7 +298,7 @@ int ubus_get_lan_status(const char *name, struct ubus_lan_status *lan)
     return ret;
 }
 
-int ubus_get_wan_status(const char *name, struct ubus_lan_status *wan)
+int ubus_get_wan_status(const char *name, struct ubus_wan_status *wan)
 {
     int ret = 0;
     char buf[1024] = {0};
