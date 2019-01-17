@@ -545,6 +545,7 @@ void _uci_enabled_wan2(int enabled)
 {    
     if (enabled)
     {
+        config_set("network.wan2.vlan", "3");
         config_unset("network.wan2.disabled");
     }
     else
@@ -1398,11 +1399,34 @@ int set_wan6_config(cgi_request_t *req, cgi_response_t *resp)
     return 0;
 }
 
+int get_wan_link_status(char *name)
+{
+    int ret = 0;
+    int unit = 0;
+    int link = 0;
+    struct ubus_wan_status wan;
+
+    unit = get_wan_unit(name);
+    memset(&wan, 0x0, sizeof(struct ubus_wan_status));
+    ret = ubus_get_wan_status(wan_sec_names[unit], &wan);
+    if (ret < 0)
+    {
+        link = 0;
+    }
+    else 
+    {
+        link = wan.status;
+    }
+
+    return link;
+}
+
 /* 多WAN状态 */
 int get_dualwan_status(cgi_request_t *req, cgi_response_t *resp)
 {
     int ret = 0;
     int dualwan = 0;
+    int link = 0;
 
     dualwan = config_get(DUALWAN_ENABLED);
     if (!dualwan)
@@ -1414,9 +1438,12 @@ int get_dualwan_status(cgi_request_t *req, cgi_response_t *resp)
     webs_json_header(req->out);
     webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
     webs_write(req->out, "\"dualwan\":[");
-    webs_write(req->out, "{\"interface\":\"WAN1\",\"state\":\"down\"}");
-    webs_write(req->out, ",{\"interface\":\"WAN2\",\"state\":\"down\"}");
-    webs_write(req->out, "}}");    
+
+    link = get_wan_link_status("WAN1");
+    webs_write(req->out, "{\"interface\":\"WAN1\",\"state\":\"%s\"}", (link == 0) ? "down" : "up");
+    link = get_wan_link_status("WAN2");
+    webs_write(req->out, ",{\"interface\":\"WAN2\",\"state\":\"%s\"}", (link == 0) ? "down" : "up");
+    webs_write(req->out, "]}}");
 
 out:
     if (cgi_errno != CGI_ERR_OK)
@@ -1486,7 +1513,7 @@ int set_dualwan_config(cgi_request_t *req, cgi_response_t *resp)
 
     libgw_set_dualwan_cfg(wan, &cfg);
 
-    fork_exec(1, "/etc/init.d/dualwan restart");
+    fork_exec(1, "/etc/init.d/network restart;/etc/init.d/dualwan restart");
 
 out:
     param_free();
