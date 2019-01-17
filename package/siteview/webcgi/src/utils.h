@@ -69,6 +69,7 @@ int cjson_get_int(cJSON * obj, char * key, int * val);
 int cjson_get_double(cJSON * obj, char * key, double * val);
 char *cjson_get_string(cJSON * obj, char * key);
 
+int cjson_get_bool(cJSON * obj, char * key, int * val);
 int cjson_get_int(cJSON * obj, char * key, int * val);
 int cjson_get_double(cJSON * obj, char * key, double * val);
 char *cjson_get_string(cJSON * obj, char * key);
@@ -78,6 +79,11 @@ void webs_json_header(wp_t * wp);
 void webs_text_header(wp_t * wp);
 void webs_redirect(wp_t * wp, char *html);
 void webs_write(wp_t * wp, char * fmt, ...);
+
+uint32_t prefix_to_mask(int prefix);
+char *prefix_to_mask_str(int prefix);
+
+int get_interface_hwaddr(const char * ifname, unsigned char *mac);
 
 char *cat_file(const char * file);
 void echo_file(char * value, char * file);

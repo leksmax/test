@@ -1,16 +1,17 @@
+
 config vlan
-    option name 'LAN1'
+    option name 'vlan1'
     option vlan '1'
     option vid '1'
     option ports '2 3 4 5'
-    option desc 'VLAN for LAN1'
+    option desc 'LAN1'	
 
 config vlan
-    option name 'WAN1'
+    option name 'vlan2'
     option vlan '2'
     option vid '2'
     option ports '1'
-    option desc 'VLAN for WAN1'
+    option desc 'WAN1'
 
 config port
     option port '1'

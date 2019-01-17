@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
+#include "ubus.h"
 #include "webcgi.h"
 #include "network.h"
 
@@ -18,10 +18,24 @@ const char *lan_names[_LAN_UNIT_MAX] = {
     "LAN4",
 };
 
+const char *lan_sec_names[_LAN_UNIT_MAX] = {
+    "(error)",
+    "lan",
+    "lan2",
+    "lan3",
+    "lan4",
+};
+
 const char *wan_names[_WAN_UNIT_MAX] = {
     "(error)",
     "WAN1",
     "WAN2",
+};
+
+const char *wan_sec_names[_WAN_UNIT_MAX] = {
+    "(error)",
+    "wan",
+    "wan2",
 };
 
 const char *wan4_modes[_WAN4_PROTO_MAX] = {
@@ -40,82 +54,56 @@ const char *wan6_modes[_WAN6_TYPE_MAX] = {
 char *config_get_wan(int unit, const char *name)
 {
     char wanx_param[128] = {0};
-    if (unit == WAN1_UNIT)
-        snprintf(wanx_param, sizeof(wanx_param), "network.wan.%s", name);
-    else
-        snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
-
-    cgi_debug("%s\n", wanx_param);
+    snprintf(wanx_param, sizeof(wanx_param), "network.%s.%s", wan_sec_names[unit], name);
     return config_get(wanx_param);
 }
 
 int config_get_wan_int(int unit, const char *name)
 {
     char wanx_param[128] = {0};
-    if (unit == WAN1_UNIT)
-        snprintf(wanx_param, sizeof(wanx_param), "network.wan.%s", name);
-    else
-        snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+    snprintf(wanx_param, sizeof(wanx_param), "network.%s.%s", wan_sec_names[unit], name);
     return config_get_int(wanx_param);
 }
 
 int config_set_wan(int unit, const char *name, char *value)
 {
     char wanx_param[128] = {0};
-    if (unit == WAN1_UNIT)
-        snprintf(wanx_param, sizeof(wanx_param), "network.wan.%s", name);
-    else
-        snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+    snprintf(wanx_param, sizeof(wanx_param), "network.%s.%s", wan_sec_names[unit], name);
     return config_set(wanx_param, value);
 }
 
 int config_set_wan_int(int unit, const char *name, int value)
 {
     char wanx_param[128] = {0};
-    if (unit == WAN1_UNIT)
-        snprintf(wanx_param, sizeof(wanx_param), "network.wan.%s", name);
-    else
-        snprintf(wanx_param, sizeof(wanx_param), "network.wan%d.%s", unit, name);
+    snprintf(wanx_param, sizeof(wanx_param), "network.%s.%s", wan_sec_names[unit], name);
     return config_set_int(wanx_param, value);    
 }
 
 char *config_get_lan(int unit, const char *name)
 {
     char lanx_param[128] = {0};
-    if (unit == LAN1_UNIT)
-        snprintf(lanx_param, sizeof(lanx_param), "network.lan.%s", name);
-    else
-        snprintf(lanx_param, sizeof(lanx_param), "network.lan%d.%s", unit, name);
+    snprintf(lanx_param, sizeof(lanx_param), "network.%s.%s", lan_sec_names[unit], name);
     return config_get(lanx_param);
 }
 
 int config_get_lan_int(int unit, const char *name)
 {
     char lanx_param[128] = {0};
-    if (unit == LAN1_UNIT)
-        snprintf(lanx_param, sizeof(lanx_param), "network.lan.%s", name);
-    else
-        snprintf(lanx_param, sizeof(lanx_param), "network.lan%d.%s", unit, name);
+    snprintf(lanx_param, sizeof(lanx_param), "network.%s.%s", lan_sec_names[unit], name);
     return config_get_int(lanx_param);
 }
 
 int config_set_lan(int unit, const char *name, char *value)
 {
     char lanx_param[128] = {0};
-    if (unit == LAN1_UNIT)
-        snprintf(lanx_param, sizeof(lanx_param), "network.lan.%s", name);
-    else
-        snprintf(lanx_param, sizeof(lanx_param), "network.lan%d.%s", unit, name);
+    snprintf(lanx_param, sizeof(lanx_param), "network.%s.%s", lan_sec_names[unit], name);
     return config_set(lanx_param, value);
 }
 
 int config_set_lan_int(int unit, const char *name, int value)
 {
     char lanx_param[128] = {0};
-    if (unit == LAN1_UNIT)
-        snprintf(lanx_param, sizeof(lanx_param), "network.lan.%s", name);
-    else
-        snprintf(lanx_param, sizeof(lanx_param), "network.lan%d.%s", unit, name);
+    snprintf(lanx_param, sizeof(lanx_param), "network.%s.%s", lan_sec_names[unit], name);
     return config_set_int(lanx_param, value);    
 }
 
@@ -914,38 +902,80 @@ int get_lan_status(cgi_request_t *req, cgi_response_t *resp)
     int method = 0;
     cJSON *params = NULL;
     char *strVal = NULL;
-    lan_cfg_t cfg;
+    int unit;
+    char macaddr[18];
+    struct ubus_lan_status lan;
+    int getall = 0;
+    int cnt = 0;
+    unsigned char mac[6];
     
     ret = param_init(req->post_data, &method, &params);
     if (ret < 0)
     {
-        cgi_errno = CGI_ERR_PARAM;
+        cgi_errno = CGI_ERR_PARAM; 
         goto out;
     }
 
     strVal = cjson_get_string(params, "lan");
-    if (!strVal)
+    if (!strVal || strVal[0] == '\0')
     {    
-        cgi_errno = CGI_ERR_CFG_PARAM;
-        goto out;
+        getall = 1;
     }
 
-    memset(&cfg, 0x0, sizeof(lan_cfg_t));
+    if (getall)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+        webs_write(req->out, "\"interface\":[");
 
-    ret = libgw_get_lan_cfg("LAN1", &cfg);
-    if (ret < 0)
-    {    
-        cgi_errno = CGI_ERR_CFG_FILE;
-        goto out;
+        for (unit = LAN1_UNIT; unit < _LAN_UNIT_MAX; unit ++)
+        {
+            memset(&lan, 0x0, sizeof(struct ubus_lan_status));
+            ret = ubus_get_lan_status(lan_sec_names[unit], &lan);
+            if (ret < 0)
+            {
+                continue;    
+            }
+
+            if (get_interface_hwaddr(lan.ifname, mac) == 0) 
+            { 
+                sprintf(macaddr, "%02X:%02X:%02X:%02X:%02X:%02X", 
+                    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            } 
+
+            webs_write(req->out, "%s{\"lan\":\"%s\",\"macaddr\":\"%s\",\"ipaddr\":\"%s\",\"netmask\":\"%s\","
+                "\"uptime\":%d}", (cnt > 0) ? "," : "", lan_names[unit], macaddr, lan.ipaddr, lan.netmask, lan.uptime);
+
+            cnt ++;
+        }
+        webs_write(req->out, "]}}");
     }
+    else
+    {
+        unit = get_lan_unit(strVal);
+        memset(&lan, 0x0, sizeof(struct ubus_lan_status));
+        ret = ubus_get_lan_status(lan_sec_names[unit], &lan);
+        if (ret < 0)
+        {
+            cgi_errno = CGI_ERR_INTERNAL;
+            goto out;
+        }
 
-    webs_json_header(req->out);
-    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
-    webs_write(req->out, "\"interface\":[{\"lan\":\"%s\",\"ipaddr\":\"%s\",\"netmask\":\"%s\","
-            "\"dhcpd_enable\":%d,\"dhcpd_start\":\"%s\",\"dhcpd_end\":\"%s\"}]",
-            cfg.lan, cfg.ipaddr, cfg.netmask, cfg.dhcpd_enable, cfg.dhcpd_start, 
-            cfg.dhcpd_end);
-    webs_write(req->out, "}}");
+        if (get_interface_hwaddr(lan.ifname, mac) == 0) 
+        { 
+            sprintf(macaddr, "%02X:%02X:%02X:%02X:%02X:%02X", 
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        }
+        
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+        webs_write(req->out, "\"interface\":[");
+
+        webs_write(req->out, "%s{\"lan\":\"%s\",\"macaddr\":\"%s\",\"ipaddr\":\"%s\",\"netmask\":\"%s\","
+            "\"uptime\":%d}", (cnt > 0) ? "," : "", lan_names[unit], macaddr, lan.ipaddr, lan.netmask, lan.uptime);
+        
+        webs_write(req->out, "]}}");
+    }
     
 out:
     param_free();
@@ -1138,7 +1168,12 @@ int get_wan_status(cgi_request_t *req, cgi_response_t *resp)
     int method = 0;
     cJSON *params = NULL;
     char *strVal = NULL;
-    wan_cfg_t cfg;
+    int unit;
+    char macaddr[18];
+    struct ubus_wan_status wan;
+    int getall = 0;
+    int cnt = 0;
+    unsigned char mac[6];
     
     ret = param_init(req->post_data, &method, &params);
     if (ret < 0)
@@ -1148,31 +1183,70 @@ int get_wan_status(cgi_request_t *req, cgi_response_t *resp)
     }
 
     strVal = cjson_get_string(params, "wan");
-    if (!strVal)
+    if (!strVal || strVal[0] == '\0')
     {    
-        cgi_errno = CGI_ERR_CFG_PARAM;
-        goto out;
+        getall = 1;
     }
 
-    memset(&cfg, 0x0, sizeof(wan_cfg_t));
+    if (getall)
+    {
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+        webs_write(req->out, "\"interface\":[");
 
-    ret = libgw_get_wan_cfg("WAN1", &cfg);
-    if (ret < 0)
-    {    
-        cgi_errno = CGI_ERR_CFG_PARAM;
-        goto out;
+        for (unit = WAN1_UNIT; unit < _WAN_UNIT_MAX; unit ++)
+        {
+            memset(&wan, 0x0, sizeof(struct ubus_wan_status));
+            ret = ubus_get_wan_status(wan_sec_names[unit], &wan);
+            if (ret < 0)
+            {
+                continue;    
+            }
+
+            if (get_interface_hwaddr(wan.ifname, mac) == 0) 
+            { 
+                sprintf(macaddr, "%02X:%02X:%02X:%02X:%02X:%02X", 
+                    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            } 
+
+            webs_write(req->out, "%s{\"wan\":\"%s\",\"macaddr\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
+                "\"netmask\":\"%s\",\"gateway\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\","
+                "\"uptime\":%d}", (cnt > 0) ? "," : "", wan_names[unit], macaddr, wan.proto, wan.ipaddr, 
+                wan.netmask, wan.gateway, wan.dns1, wan.dns2, wan.uptime);
+
+            cnt ++;
+        }
+        webs_write(req->out, "]}}");
+    }
+    else
+    {
+        unit = get_wan_unit(strVal);
+        memset(&wan, 0x0, sizeof(struct ubus_wan_status));
+        ret = ubus_get_wan_status(wan_sec_names[unit], &wan);
+        if (ret < 0)
+        {
+            cgi_errno = CGI_ERR_INTERNAL;
+            goto out;
+        }
+
+        if (get_interface_hwaddr(wan.ifname, mac) == 0) 
+        { 
+            sprintf(macaddr, "%02X:%02X:%02X:%02X:%02X:%02X", 
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        }
+        
+        webs_json_header(req->out);
+        webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
+        webs_write(req->out, "\"interface\":[");
+
+        webs_write(req->out, "%s{\"wan\":\"%s\",\"macaddr\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
+            "\"netmask\":\"%s\",\"gateway\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\","
+            "\"uptime\":%d}", (cnt > 0) ? "," : "", wan_names[unit], macaddr, wan.proto, wan.ipaddr, 
+            wan.netmask, wan.gateway, wan.dns1, wan.dns2, wan.uptime);        
+        webs_write(req->out, "]}}");
     }
     
-    webs_json_header(req->out);
-    webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
-    webs_write(req->out, "\"interface\":[{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
-            "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
-            "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\"}]",
-            cfg.wan, cfg.proto, cfg.ipaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
-            cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2);
-    webs_write(req->out, "}}");
 out:
-    
     param_free();
 
     if (cgi_errno != CGI_ERR_OK)

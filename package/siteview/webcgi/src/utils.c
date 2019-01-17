@@ -6,7 +6,11 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 #include <uci.h>
 #include "utils.h"
 
@@ -213,6 +217,22 @@ void webs_write(wp_t *wp, char *fmt, ...)
 
 cJSON *pRoot = NULL;
 
+int cjson_get_bool(cJSON *obj, char *key, int *val)
+{
+    cJSON *tmp = NULL;
+
+    tmp = cJSON_GetObjectItem(obj, key);
+    if(!tmp || (tmp->type != cJSON_False &&
+            tmp->type != cJSON_True))
+    {
+        return -1;
+    }
+
+    *val = tmp->valueint;
+
+    return 0;
+}
+
 int cjson_get_int(cJSON *obj, char *key, int *val)
 {
     cJSON *tmp = NULL;
@@ -254,6 +274,55 @@ char *cjson_get_string(cJSON *obj, char *key)
     }
 
     return tmp->valuestring;
+}
+
+#define NET_API
+
+/* 
+ * 网络前缀转换成子网掩码
+ */
+uint32_t prefix_to_mask(int prefix)
+{
+    struct in_addr mask;
+    memset(&mask, 0, sizeof(mask));
+    if (prefix) {
+        return htonl(~((1 << (32 - prefix)) - 1)); 
+    } else {
+        return htonl(0);
+    }    
+}
+
+char *prefix_to_mask_str(int prefix)
+{
+    struct in_addr netmask;
+    netmask.s_addr = prefix_to_mask(prefix);
+    return inet_ntoa(netmask);
+}
+
+int get_interface_hwaddr(const char *ifname, unsigned char mac[6])
+{
+    struct ifreq ifr;
+    int sockfd, ret = 0;
+
+    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
+    {
+        return -1; 
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+    if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) < 0)
+    {
+        ret = -1; 
+    }
+    else
+    {
+        memcpy(mac, ifr.ifr_hwaddr.sa_data, 6); 
+    }
+    
+    close(sockfd);
+
+    return ret;
 }
 
 #define MISC_API
