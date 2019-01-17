@@ -319,6 +319,8 @@ int libgw_get_lan_cfg(char *lan, lan_cfg_t *cfg)
     strncpy(cfg->ipaddr, config_get_lan(unit, LAN_IPADDR), sizeof(cfg->ipaddr) - 1);
     strncpy(cfg->netmask, config_get_lan(unit, LAN_NETMASK), sizeof(cfg->netmask) - 1);
 
+    cfg->vlan = config_get_lan_int(unit, LAN_VLAN);
+
     ignore = config_get_int(LAN1_DHCP_IGNORE);
     cfg->dhcpd_enable = ((ignore == 0) ? 1 : 0);
 
@@ -398,6 +400,8 @@ int libgw_get_wan_cfg(char *wan, wan_cfg_t *cfg)
     strncpy(cfg->service, config_get_wan(unit, WAN_PPPOE_SERVICE), sizeof(cfg->service) - 1);
     
     strncpy(dns, config_get_wan(unit, WAN_DNS), sizeof(dns) - 1);
+
+    cfg->vlan = config_get_wan_int(unit, WAN_VLAN);
 
     if (dns[0] != '\0')
     {
@@ -526,37 +530,15 @@ int libgw_get_dualwan_cfg(dualwan_cfg_t *cfg)
 }
 
 void _uci_enabled_wan2(int enabled)
-{
-    char tmp[20] = {0};
-    
-    strncpy(tmp, config_get("network.wan2"), sizeof(tmp) - 1);
-    
-    cgi_debug("tmp = %s\n", tmp);
-    if (tmp[0] == '\0')
-    {
-        cgi_debug("\n");
-
-        config_set("network.wan2", "interface");
-        config_set("network.wan2.ifname", "eth0.3");
-        config_set("network.wan2.proto", "dhcp");
-    }
-
-    cgi_debug("tmp = %s\n", tmp);
-
+{    
     if (enabled)
     {
-        cgi_debug("\n");
-
         config_unset("network.wan2.disabled");
     }
     else
     {
-    
-        cgi_debug("\n");
         config_set("network.wan2.disabled", "1");
     }
-
-    cgi_debug("\n");
 
     config_commit("network");
 }
@@ -989,21 +971,6 @@ out:
     return ret;
 }
 
-int lan_intf_add(cJSON *params)
-{
-    return 0;
-}
-
-int lan_intf_edit(cJSON *params)
-{
-    return 0;
-}
-
-int lan_intf_del(cJSON *params)
-{
-    return 0;
-}
-
 int lan_interface_config(cgi_request_t *req, cgi_response_t *resp)
 {
     int ret = 0;
@@ -1016,32 +983,13 @@ int lan_interface_config(cgi_request_t *req, cgi_response_t *resp)
         cgi_errno = CGI_ERR_PARAM;
         goto out;
     }
-    
-    switch(method)
-    {
-        case CGI_ADD:
-            ret = lan_intf_add(params);
-            break;
-        case CGI_SET:
-            ret = lan_intf_edit(params);
-            break;
-        case CGI_DEL:
-            ret = lan_intf_del(params);
-            break;
-        default:
-            cgi_errno = CGI_ERR_NOT_FOUND;
-            break;
-    }    
-
+     
 out:
     param_free();
 
-    if (cgi_errno != CGI_ERR_OK)
-    {
-        webs_json_header(req->out);
-        webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
-    }
-
+    webs_json_header(req->out);
+    webs_write(req->out, "{\"code\":%d,\"data\":{}}", cgi_errno);
+        
     return 0;
 }
 
@@ -1122,29 +1070,29 @@ int get_wan_config(cgi_request_t *req, cgi_response_t *resp)
     {
         libgw_get_wan_cfg(wan_name, &cfg);
 
-        webs_write(req->out, "{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
+        webs_write(req->out, "{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\",\"macaddr\":\"%s\","
                 "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
-                "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\"}",
-                cfg.wan, cfg.proto, cfg.ipaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
-                cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2);
+                "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\",\"vlan\":%d}",
+                cfg.wan, cfg.proto, cfg.ipaddr, cfg.macaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
+                cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2, cfg.vlan);
     }
     else
     {
         libgw_get_wan_cfg("WAN1", &cfg);
 
-        webs_write(req->out, "{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
+        webs_write(req->out, "{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\",\"macaddr\":\"%s\","
                 "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
-                "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\"}",
-                cfg.wan, cfg.proto, cfg.ipaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
-                cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2);
+                "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\",\"vlan\":%d}",
+                cfg.wan, cfg.proto, cfg.ipaddr, cfg.macaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
+                cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2, cfg.vlan);
 
         libgw_get_wan_cfg("WAN2", &cfg);
         
-        webs_write(req->out, ",{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\","
+        webs_write(req->out, "{\"wan\":\"%s\",\"proto\":\"%s\",\"ipaddr\":\"%s\",\"macaddr\":\"%s\","
                 "\"netmask\":\"%s\",\"gateway\":\"%s\",\"username\":\"%s\",\"password\":\"%s\","
-                "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\"}",
-                cfg.wan, cfg.proto, cfg.ipaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
-                cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2);
+                "\"service\":\"%s\",\"dns_mode\":\"%s\",\"dns1\":\"%s\",\"dns2\":\"%s\",\"vlan\":%d}",
+                cfg.wan, cfg.proto, cfg.ipaddr, cfg.macaddr, cfg.netmask, cfg.gateway, cfg.pppoe_user, 
+                cfg.pppoe_pwd, cfg.service, cfg.dns_mode, cfg.dns1, cfg.dns2, cfg.vlan);
 
     }
     
@@ -1526,7 +1474,7 @@ int set_dualwan_config(cgi_request_t *req, cgi_response_t *resp)
 
     libgw_set_dualwan_cfg(wan, &cfg);
 
-    //fork_exec(1, "/etc/init.d/dualwan restart");
+    fork_exec(1, "/etc/init.d/dualwan restart");
 
 out:
     param_free();

@@ -28,6 +28,7 @@
 #define WAN_PPPOE_SERVICE  ("service")
 #define WAN_DNS            ("dns")
 #define WAN_MACADDR        ("macaddr")
+#define WAN_VLAN           ("vlan")
 
 #define DUALWAN_ENABLED     ("dualwan.global.enabled")
 #define DUALWAN_PRIMARY     ("dualwan.global.primary")

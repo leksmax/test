@@ -65,10 +65,6 @@ int config_unset(const char * name);
 int config_commit(const char * name);
 int config_uncommit(const char * name);
 
-int cjson_get_int(cJSON * obj, char * key, int * val);
-int cjson_get_double(cJSON * obj, char * key, double * val);
-char *cjson_get_string(cJSON * obj, char * key);
-
 int cjson_get_bool(cJSON * obj, char * key, int * val);
 int cjson_get_int(cJSON * obj, char * key, int * val);
 int cjson_get_double(cJSON * obj, char * key, double * val);
