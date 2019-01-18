@@ -4,6 +4,13 @@
 
 #define MAX_STATIC_ROUTE 20
 #define MAX_POLICY_ROUTE 20
+#define MAX_INTERFACE_NUM 6
+
+#define VAR_IS_NULL_DEFAULT_VAL(var, defVal) \
+{ \
+	if(var == NULL) \
+		var = defVal; \
+}
 
 typedef struct {
     int id;

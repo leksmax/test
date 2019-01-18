@@ -29,6 +29,27 @@ const struct json_val json_st_route_vals[] = {
     {  }
 };
 
+const char *interface_names[MAX_INTERFACE_NUM] = {
+	"LAN1",
+	"LAN2",
+	"LAN3",
+	"LAN4",
+	"WAN1",
+	"WAN2",
+};
+
+int check_interface_name(const char *name)
+{
+	int i = 0;
+
+	for(i = 0; i < MAX_INTERFACE_NUM; i++)
+	{
+		if(strcmp(interface_names[i], name) == 0)
+			return 1;
+	}
+	return 0;
+}
+
 /*  
  *  路由配置：
  *      1.静态路由；
@@ -210,6 +231,23 @@ out:
     return 0;
 }
 
+int check_st_route_paramter(struct json_st_route *p)
+{
+	if(p->target == NULL || p->interface == NULL || p->name == NULL)
+		return -1;
+	
+	if(check_interface_name(p->interface) == 0)
+		return -1;
+
+	VAR_IS_NULL_DEFAULT_VAL(p->netmask, "");
+	VAR_IS_NULL_DEFAULT_VAL(p->gateway, "");
+
+	if(p->metric < 0 || p->metric > 255)
+		p->metric = 0;
+
+	return 0;
+}
+
 int static_route_add(cJSON *params)
 {
     st_route_t *st = NULL;
@@ -223,11 +261,17 @@ int static_route_add(cJSON *params)
     memset(&p, 0x0, sizeof(struct json_st_route));
     json_parse_vals((void *)&p, json_st_route_vals, params);
 
+	if (check_st_route_paramter(&p) < 0)
+	{
+		return CGI_ERR_CFG_PARAM;
+	}
+
     st = (st_route_t *)malloc(sizeof(st_route_t));
     if (!st)
     {
         return CGI_ERR_INTERNAL;
     }
+	memset(st, 0x0, sizeof(st_route_t));
 
     st->id = rs.st_route_num + 1;
     strncpy(st->name, p.name, sizeof(st->name) - 1);
@@ -250,6 +294,11 @@ int static_route_edit(cJSON *params)
 
     memset(&p, 0x0, sizeof(struct json_st_route));
     json_parse_vals((void *)&p, json_st_route_vals, params);
+
+	if (check_st_route_paramter(&p) < 0)
+	{
+		return CGI_ERR_CFG_PARAM;
+	}
 
     list_for_each_entry(st, &rs.st_routes, list)
     {
@@ -351,7 +400,7 @@ int static_route_config(cgi_request_t *req, cgi_response_t *resp)
     if (cgi_errno == CGI_ERR_OK)
     {
         route_config_commit();
-        //fork_exec(1, "/etc/init.d/route restart");
+        fork_exec(1, "/etc/init.d/route restart");
     }
     
 out:

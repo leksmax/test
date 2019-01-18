@@ -28,6 +28,8 @@ define Package/webcgi/install
 	$(INSTALL_BIN) ./files/usr/sbin/network.cli $(1)/usr/sbin/
 	$(INSTALL_DIR) $(1)/etc/config
 	$(CP) ./files/etc/config/* $(1)/etc/config/
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(CP) ./files/etc/init.d/* $(1)/etc/init.d/
 	$(INSTALL_DIR) $(1)/www
 	$(CP) ./files/www/* $(1)/www/
 	$(INSTALL_DIR) $(1)/etc/uci-defaults

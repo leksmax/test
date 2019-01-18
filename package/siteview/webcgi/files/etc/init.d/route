@@ -1,0 +1,127 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+PREFIX=64
+TABLE_ID=64
+IP_RO="/usr/sbin/ip route"
+IP_RU="/usr/sbin/ip rule"
+IPCALC="/usr/sbin/ipcalc"
+
+add_rule_flag=0
+
+net_mask_to_subnet()                                                                       
+{                                                                                          
+	eval "$(${IPCALC} -n -p ${1}/${2})"
+	if [ "x${PREFIX}" == "x32" ]; then
+		echo ""
+	else
+		echo "${NETWORK}/${PREFIX}"
+	fi
+} 
+
+map_interface_dev(){
+	case ${1} in
+		LAN1)
+			echo "br-lan"
+		;;
+		LAN2)
+			echo "br-lan1"
+		;;
+		LAN3)
+			echo "br-lan2"
+		;;
+		LAN4)
+			echo "br-lan3"
+		;;
+		WAN1)
+			echo "ethwan1"
+		;;
+		WAN2)
+			echo "ethwan1"
+		;;
+		*)
+			echo ""
+	esac
+}
+
+config_rule_add(){
+	local cfg=${1}
+	local interface target netmask gateway metric
+	
+	config_get interface ${cfg} interface
+	config_get target ${cfg} target
+	config_get netmask ${cfg} netmask "255.255.255.255"
+	config_get gateway ${cfg} gateway
+	config_get metric ${cfg} metric
+	
+	# 添加路由规则
+	
+	echo  "${interface} ${target} ${netmask} ${gateway} ${metric}"	
+	[ -z "${target}" ] && continue;
+	[ -z "${interface}" ]  && continue;
+	
+	local route_paramter="${target}"
+	
+	[ -n "${netmask}" ] && {
+		local subnet=`net_mask_to_subnet ${target} ${netmask}`
+		[ -n "${subnet}" ] && {
+			route_paramter="${subnet}"
+		}
+	}
+	
+	[ -n "${gateway}" ] && {
+		route_paramter=${route_paramter}" via ${gateway}"
+	}
+
+	[ -n "${metric}" ] && {
+		let mtc=${metric}
+		[ ${mtc} -ge 1 ] && [ ${mtc} -le 255 ] && {
+			route_paramter=${route_paramter}" metric ${mtc}"
+		}
+	}
+	
+	
+	local dev_name=`map_interface_dev ${interface}`
+	[ -z "${dev_name}" ] && continue;
+	
+	route_paramter=${route_paramter}" dev ${dev_name}"
+
+	${IP_RO} add ${route_paramter} proto static table ${TABLE_ID}
+	
+	add_rule_flag=1
+	#echo "${IP_RO} add ${route_paramter} proto static table ${TABLE_ID}"
+}
+
+boot(){
+	start	
+}
+
+start(){
+	# 1、创建自己路由表
+	
+	# 2、读配置，将路由规则添加到自己创建的路由表中
+	config_load route
+	
+	config_foreach config_rule_add static
+	
+	[ "x${add_rule_flag}" == "x1" ] &&	{
+		${IP_RU} add pref ${PREFIX} table ${TABLE_ID}
+	}
+}
+
+stop(){
+	# 删除自己创建的路由表
+	#echo "delete static route list"
+	${IP_RO} flush table ${TABLE_ID}
+	
+	[ -n "`${IP_RU} show | grep "from all lookup ${TABLE_ID}"`" ] && {
+		${IP_RU} del pref ${PREFIX} table ${TABLE_ID}
+	}
+}
+
+restart(){
+	stop
+	start
+}
+
