@@ -1,5 +1,5 @@
 
-config dualwan
+config dualwan 'global'
     option enabled '0'
     option primary 'WAN1'
     option secondary 'WAN2'

@@ -541,22 +541,64 @@ int libgw_get_dualwan_cfg(dualwan_cfg_t *cfg)
     return 0;
 }
 
-void _uci_enabled_wan2(int enabled)
-{    
-    if (enabled)
+void init_wan2_all()
+{
+    /* firewall */
+    sys_exec("uci add_list firewall.@zone[1].network=wan2 >/dev/null 2>&1");
+    sys_exec("uci add firewall forwarding >/dev/null 2>&1");
+    sys_exec("uci set firewall.@forwarding[1].src='lan' >/dev/null 2>&1");
+    sys_exec("uci set firewall.@forwarding[1].dest='wan2' >/dev/null 2>&1");
+    config_commit("firewall");
+
+    /* dhcp */
+    sys_exec("uci set dhcp.wan2=dhcp >/dev/null 2>&1");
+    sys_exec("uci set dhcp.wan2.interface='wan2' >/dev/null 2>&1");
+    sys_exec("uci set dhcp.wan2.ignore='1' >/dev/null 2>&1");
+    config_commit("dhcp");
+}
+
+void clear_wan2_all()
+{
+    sys_exec("uci del_list firewall.@zone[1].network=wan2 >/dev/null 2>&1");
+    sys_exec("uci delete dhcp.wan2 >/dev/null 2>&1");
+    config_commit("firewall");
+    config_commit("dhcp");
+}
+
+void _uci_enabled_wan2(dualwan_cfg_t *cfg)
+{
+    int primary_wan = 0;
+    int secondary_wan = 0;
+
+    primary_wan = get_wan_unit(cfg->primary);
+    secondary_wan = get_wan_unit(cfg->secondary);
+
+    if (cfg->enabled)
     {
+        config_set_wan_int(primary_wan, "metric", 1);
+        config_set_wan_int(secondary_wan, "metric", 2);
+    
         config_set("network.wan2.vlan", "3");
         config_unset("network.wan2.disabled");
+
+        clear_wan2_all();
+        init_wan2_all();
     }
     else
     {
         config_set("network.wan2.disabled", "1");
+        config_unset("network.wan.metric");
+        
+        sys_exec("uci delete dnetwork.wan.metric >/dev/null 2>&1");
+        sys_exec("uci delete dnetwork.wan2.metric >/dev/null 2>&1");
+        
+        clear_wan2_all();
     }
 
     config_commit("network");
 }
 
-int libgw_set_dualwan_cfg(char *wan, dualwan_cfg_t *cfg)
+int libgw_set_dualwan_cfg(dualwan_cfg_t *cfg)
 {
     config_set_int(DUALWAN_ENABLED, cfg->enabled);
 
@@ -573,11 +615,68 @@ int libgw_set_dualwan_cfg(char *wan, dualwan_cfg_t *cfg)
         }
     }
 
-    _uci_enabled_wan2(cfg->enabled);
+    _uci_enabled_wan2(cfg);
     
     config_commit("dualwan");
 
     return 0;   
+}
+
+/* 
+ * 检查接口名是否有效
+ */
+int is_intf_wan_valid(char *name)
+{
+    int i = 0;
+
+    if (!name)
+    {
+        return -1;
+    }
+
+    for (i = WAN1_UNIT; i < _WAN_UNIT_MAX; i ++)
+    {
+        if (strcmp(name, wan_names[i]) == 0)
+        {
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+int is_intf_lan_vaild(char *name)
+{
+    int i = 0;
+
+    if (!name)
+    {
+        return -1;
+    }
+
+    for (i = LAN1_UNIT; i < _LAN_UNIT_MAX; i ++)
+    {
+        if (strcmp(name, lan_names[i]) == 0)
+        {
+            return 0;
+        }
+    }
+
+    return -1;    
+}
+
+/*
+ * 检查接口是否已激活，
+ * 对应配置文件，disabled = 0
+ */
+int is_intf_wan_active(char *name)
+{
+    return 0;
+}
+
+int is_intf_lan_active(char *name)
+{
+    return 0;    
 }
 
 #define WEB_NTWK
@@ -1491,7 +1590,6 @@ int set_dualwan_config(cgi_request_t *req, cgi_response_t *resp)
 {
     int ret = 0;
     int method = 0;
-    char *wan = NULL;
     cJSON *params = NULL;
     dualwan_cfg_t cfg;
 
@@ -1503,17 +1601,19 @@ int set_dualwan_config(cgi_request_t *req, cgi_response_t *resp)
     }
 
     memset(&cfg, 0x0, sizeof(dualwan_cfg_t));
-
     ret = parse_dualwan_config(params, &cfg);
     if (ret < 0)
     {
         cgi_errno = CGI_ERR_CFG_PARAM;
         goto out;
     }
+    
+    libgw_set_dualwan_cfg(&cfg);
 
-    libgw_set_dualwan_cfg(wan, &cfg);
-
-    fork_exec(1, "/etc/init.d/network restart;/etc/init.d/dualwan restart");
+    fork_exec(1, "/etc/init.d/firewall restart;"
+        "/etc/init.d/network restart;"
+        "/etc/init.d/dhcp restart;"
+        "/etc/init.d/dualwan restart");
 
 out:
     param_free();
