@@ -157,8 +157,8 @@ int get_ddns_config(cgi_request_t *req, cgi_response_t *resp)
 
     webs_json_header(req->out);
     webs_write(req->out, "{\"code\":%d,\"data\":{", cgi_errno);
-    webs_write(req->out, "{\"enabled\":%d,\"service\":\"%s\",\"updatetime\":%d,"
-            "\"domainname\":\"%s\",\"username\":\"%s\",\"password\":\"%s\"}",
+    webs_write(req->out, "\"enabled\":%d,\"service\":\"%s\",\"updatetime\":%d,"
+            "\"domainname\":\"%s\",\"username\":\"%s\",\"password\":\"%s\"",
             cfg.enabled, cfg.service, cfg.updatetime, cfg.host, cfg.username, cfg.password);
     webs_write(req->out, "}}");
     
