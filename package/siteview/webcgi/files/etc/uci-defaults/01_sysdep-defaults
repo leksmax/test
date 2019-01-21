@@ -1,5 +1,9 @@
 #!/bin/sh
 
+[ -e /etc/config/network ] && exit 0
+
+touch /etc/config/network
+
 /sbin/sysinit network_uci_defaults
 
 exit 0
