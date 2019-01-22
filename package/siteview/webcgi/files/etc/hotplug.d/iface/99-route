@@ -1,0 +1,5 @@
+#!/bin/sh
+
+[ "$ACTION" = "ifup" ] && {
+	/etc/init.d/route restart
+}

@@ -30,6 +30,8 @@ define Package/webcgi/install
 	$(CP) ./files/etc/config/* $(1)/etc/config/
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(CP) ./files/etc/init.d/* $(1)/etc/init.d/
+	$(INSTALL_DIR) $(1)/etc/hotplug.d
+	$(CP) ./files/etc/hotplug.d/* $(1)/etc/hotplug.d/
 	$(INSTALL_DIR) $(1)/www
 	$(CP) ./files/www/* $(1)/www/
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
