@@ -231,7 +231,7 @@ out:
     return 0;
 }
 
-int check_st_route_paramter(struct json_st_route *p)
+int check_st_route_data_vaild(struct json_st_route *p)
 {
 	if(p->target == NULL || p->interface == NULL || p->name == NULL)
 		return -1;
@@ -248,6 +248,21 @@ int check_st_route_paramter(struct json_st_route *p)
 	return 0;
 }
 
+int check_data_is_exist(struct json_st_route p)
+{
+    st_route_t *st = NULL;
+    list_for_each_entry(st, &rs.st_routes, list)
+    {
+        if (strcmp(st->target, p.target) == 0 &&
+			strcmp(st->netmask, p.netmask) == 0 &&
+			strcmp(st->interface, p.interface) == 0)
+        {
+            return -1;
+        }
+    }
+	return 0;
+}
+
 int static_route_add(cJSON *params)
 {
     st_route_t *st = NULL;
@@ -261,9 +276,14 @@ int static_route_add(cJSON *params)
     memset(&p, 0x0, sizeof(struct json_st_route));
     json_parse_vals((void *)&p, json_st_route_vals, params);
 
-	if (check_st_route_paramter(&p) < 0)
+	if (check_st_route_data_vaild(&p) < 0)
 	{
 		return CGI_ERR_CFG_PARAM;
+	}
+
+	if (check_data_is_exist(p) < 0)
+	{
+		return CGI_ERR_CFG_DUPLICATE;
 	}
 
     st = (st_route_t *)malloc(sizeof(st_route_t));
