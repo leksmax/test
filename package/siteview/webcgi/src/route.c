@@ -315,7 +315,7 @@ int static_route_edit(cJSON *params)
     memset(&p, 0x0, sizeof(struct json_st_route));
     json_parse_vals((void *)&p, json_st_route_vals, params);
 
-	if (check_st_route_paramter(&p) < 0)
+	if (check_st_route_data_vaild(&p) < 0)
 	{
 		return CGI_ERR_CFG_PARAM;
 	}
