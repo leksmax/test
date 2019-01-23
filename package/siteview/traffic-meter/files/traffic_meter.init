@@ -76,14 +76,14 @@ start_traffic_meter(){
 	
 	get_traffic_config
 	
+	/lib/traffic/traffic_meter.script stop
+	
 	if [ "x${enabled}" != "x1" ]; then
 		exit 0;
 	fi
 	
 	add_iptables_rule
 
-	/lib/traffic/traffic_meter.script stop
-	
 	if [ "x${type}" == "x0" ]; then
 		/usr/sbin/traffic_meter set limit_not ${table_name} 0
 	else
@@ -119,14 +119,14 @@ start_traffic_meter(){
 	fi
 		
 	if [ -z "`ps | grep "traffic_meter" | grep -v grep`" ]; then 
-		echo "start traffic meter"
+		#echo "start traffic meter"
 		/usr/sbin/traffic_meter -a ${table_name} ${paramter}
 	fi
 }
 
 stop_traffic_meter(){	
 	if [ -n "`ps | grep "traffic_meter" | grep -v grep`" ]; then	
-		echo "stop traffic meter"
+		#echo "stop traffic meter"
 		killall traffic_meter
 	fi
 	del_iptables_rule
