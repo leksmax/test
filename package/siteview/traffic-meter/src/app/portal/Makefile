@@ -2,7 +2,7 @@
 PROJ_DIR   := $(shell pwd)
 
 TARGET     := portal
-SOURCES    := httpd.c 
+SOURCES    := httpd.c ipfw.c
 OBJS       := $(SOURCES:.c=.o)
 
 LDFLAGS += -levhtp -levent -levent_openssl -lssl -lcrypto -lpthread -lm -L$(PROJ_DIR)/libevhtp

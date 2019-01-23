@@ -44,7 +44,7 @@ define Package/traffic-meter
 	SETCTION := net
 	CATEGORY := Network
 	TITLE	 := traffic meter of all
-	DEPENDS  := +iptables-mod-maccount +iptables-mod-EXTEND_REJECT +shared +ipcalc +libpthread +libevent2 +libevent2-core +libevent2-extra +libevent2-openssl +libevent2-pthreads +libopenssl
+	DEPENDS  := +iptables-mod-maccount +iptables-mod-EXTEND_REJECT +shared +ipcalc +ipset +libpthread +libevent2 +libevent2-core +libevent2-extra +libevent2-openssl +libevent2-pthreads +libopenssl
 endef
 
 define Build/Prepare

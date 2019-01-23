@@ -25,48 +25,53 @@ load_config(){
 	config_get show_limit_size action show_limit_size
 }
 
-net_mask_to_subnet(){
-	eval "$(${IPCALC} -n -p ${1}/${2})"
-	echo "${NETWORK}/${PREFIX}"
-}
+#net_mask_to_subnet(){
+#	eval "$(${IPCALC} -n -p ${1}/${2})"
+#	echo "${NETWORK}/${PREFIX}"
+#}
 
 add_limit_redirect_rule(){
-	if [ -z "`iptables -t nat -L | grep -w "Chain ${TRAFFIC_DNAT_NAME}" | grep -v grep`" ]; then
-		iptables -t nat -N ${TRAFFIC_DNAT_NAME}
-		iptables -t nat -I PREROUTING -j ${TRAFFIC_DNAT_NAME}
-		
-		local ipaddr netmask
-		config_load network 
-		config_get ipaddr lan ipaddr
-		config_get netmask lan netmask
-		
-		subnet=`net_mask_to_subnet ${ipaddr} ${netmask}`
-		
-		iptables -t nat -A ${TRAFFIC_DNAT_NAME} -p tcp --dport 80 ! -d ${subnet} -j DNAT --to ${ipaddr}:${WEB_PORT}		
-		#iptables -t nat -A ${TRAFFIC_DNAT_NAME} -p tcp --dport 433 -j DNAT --to ${ipaddr}:${WEB_SSL_PORT}
-		#echo "iptables -t nat -A ${TRAFFIC_DNAT_NAME} -p tcp --dport 80 ! -d ${subnet} -j DNAT --to ${ipaddr}:${WEB_PORT}"
-	fi
-	
+#	if [ -z "`iptables -t nat -L | grep -w "Chain ${TRAFFIC_DNAT_NAME}" | grep -v grep`" ]; then
+#		iptables -t nat -N ${TRAFFIC_DNAT_NAME}
+#		iptables -t nat -I PREROUTING -j ${TRAFFIC_DNAT_NAME}
+#		
+#		local ipaddr netmask
+#		config_load network 
+#		config_get ipaddr lan ipaddr
+#		config_get netmask lan netmask
+#		
+#		subnet=`net_mask_to_subnet ${ipaddr} ${netmask}`
+#		
+#		iptables -t nat -A ${TRAFFIC_DNAT_NAME} -p tcp --dport 80 ! -d ${subnet} -j DNAT --to ${ipaddr}:${WEB_PORT}		
+#		#iptables -t nat -A ${TRAFFIC_DNAT_NAME} -p tcp --dport 433 -j DNAT --to ${ipaddr}:${WEB_SSL_PORT}
+#		#echo "iptables -t nat -A ${TRAFFIC_DNAT_NAME} -p tcp --dport 80 ! -d ${subnet} -j DNAT --to ${ipaddr}:${WEB_PORT}"
+#	fi
+#	
 	if [ -z "`ps  | grep -w "portal" | grep -v grep`" ]; then
 		local limit_size=$((${monthly_size} - ${show_limit_size}))
+		local ipaddr
+		config_load network 
+		config_get ipaddr lan ipaddr
+
+		if [ -e  ${TRAFFIC_LIMIT_PAGE} ]; then
+			cp  ${TRAFFIC_LIMIT_PAGE} ${TRAFFIC_LIMIT_PAGE_ORG}
+			sed -i "s/LIMIT_SIZE/${limit_size}M/g" ${TRAFFIC_LIMIT_PAGE}
+		fi
+		
 		if [ "x${disconnect_network}" == "x1" ]; then
-			${WEB_SERVER_NAME} -p ${WEB_PORT} -F
+			${WEB_SERVER_NAME} -p ${WEB_PORT} -r ${ipaddr} -F
 		else
-			${WEB_SERVER_NAME} -p ${WEB_PORT}
-			if [ -e  ${TRAFFIC_LIMIT_PAGE} ]; then
-				cp  ${TRAFFIC_LIMIT_PAGE} ${TRAFFIC_LIMIT_PAGE_ORG}
-				sed -i "s/LIMIT_SIZE/${limit_size}M/g" ${TRAFFIC_LIMIT_PAGE}
-			fi
+			${WEB_SERVER_NAME} -p ${WEB_PORT} -r ${ipaddr}
 		fi
 	fi
 }
 
 del_limit_redirect_rule(){
-	if [ -n "`iptables -t nat -L | grep -w "Chain ${TRAFFIC_DNAT_NAME}" | grep -v grep`" ]; then
-		iptables -t nat -F ${TRAFFIC_DNAT_NAME}
-		iptables -t nat -D PREROUTING -j ${TRAFFIC_DNAT_NAME}
-		iptables -t nat -X ${TRAFFIC_DNAT_NAME}
-	fi
+#	if [ -n "`iptables -t nat -L | grep -w "Chain ${TRAFFIC_DNAT_NAME}" | grep -v grep`" ]; then
+#		iptables -t nat -F ${TRAFFIC_DNAT_NAME}
+#		iptables -t nat -D PREROUTING -j ${TRAFFIC_DNAT_NAME}
+#		iptables -t nat -X ${TRAFFIC_DNAT_NAME}
+#	fi
 	if [ -n "`ps  | grep -w "portal" | grep -v grep`" ]; then
 		killall portal
 		if [ -e ${TRAFFIC_LIMIT_PAGE_ORG} ];then
@@ -95,17 +100,17 @@ handle_limit_action(){
 	
 	if [ "x${disconnect_network}" == "x1" ]; then
 		if [ "${action}" == "enabled" ]; then
-			iptables -I ${TRAFFIC_TULE_NAME} -p tcp ! --dport ${WEB_PORT} -j DROP
+			iptables -I ${TRAFFIC_TULE_NAME} -j DROP
 			#echo "open disconnect network"
 		else
 			if [ -n "${drop_rule_running}" ]; then
-				iptables -D ${TRAFFIC_TULE_NAME} ! --dport ${WEB_PORT} -j DROP
+				iptables -D ${TRAFFIC_TULE_NAME} -j DROP
 				#echo "close disconnect network"
 			fi
 		fi
 	else
 		if [ -n "${drop_rule_running}" ]; then
-			iptables -D ${TRAFFIC_TULE_NAME} ! --dport ${WEB_PORT} -j DROP
+			iptables -D ${TRAFFIC_TULE_NAME} -j DROP
 			#echo "close disconnect network"
 		fi
 	fi

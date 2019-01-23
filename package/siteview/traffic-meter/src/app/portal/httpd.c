@@ -21,6 +21,7 @@
 
 #include <evhtp.h>
 #include "httpd.h"
+#include "ipfw.h"
 #include "log.h"
 
 
@@ -148,7 +149,7 @@ void http_callback_redirect(evhtp_request_t *request, void *arg)
 		// 不存在就跳转，添加到链表中		
 		add_ip_to_list(in_ip);
 	}
-
+	
 	evhtp_headers_add_header(request->headers_out, evhtp_header_new("Content-Type", "text/html", 0, 0));    
     evhtp_headers_add_header(request->headers_out, evhtp_header_new("Connection", "close", 0, 0));	
 	
@@ -157,15 +158,14 @@ void http_callback_redirect(evhtp_request_t *request, void *arg)
 
 
 	/*删除用户对应的规则*/
-	system("/lib/traffic/traffic_meter.script deldnat");
+	if(forbid_internet == 0)
+		ipfw_allow_user(user_ip);
+	//system("/lib/traffic/traffic_meter.script deldnat");
 }
 
 void http_callback_404(evhtp_request_t *request, void *arg)
 {
-	if(forbid_internet == 0)
-		http_limit_traffic_page(request);
-	else
-		http_limit_firewall_block_page(request);
+	http_limit_traffic_page(request);
 
     evhtp_request_free(request);
 }
@@ -229,7 +229,8 @@ int httpd_server_loop(int gw_port)
 void show_usage(char *name)
 {
 	fprintf(stderr, "%s \n"
-		"	-p [port], server port\n"
+		"	-p PORT, server port\n"
+		"	-r IPADDR, route gw address\n"
 		"	-f, close daemon\n"
 		"	-F, jump forbid internet html\n"
  		"	-h, print this help\n",
@@ -277,6 +278,7 @@ static void daemon_init()
 void sig_exit()
 {    
 	destory_list();
+	ipfw_destroy();
     exit(0);
 }
 
@@ -299,8 +301,9 @@ int main(int argc, char *argv[])
 	int ch = 0;
 	int daemon_ = 1;
 	int gw_port = DEFULT_HTTPD_PORT;
+	char *gw_address = "192.168.1.1";
 
-	while((ch = getopt(argc, argv, "fhp:F")) != -1)
+	while((ch = getopt(argc, argv, "fhp:r:F")) != -1)
 	{
 		switch(ch)
 		{
@@ -309,6 +312,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'p':
 				gw_port = atoi(optarg);
+				break;
+			case 'r':
+				gw_address = optarg;
 				break;
 			case 'F':
 				forbid_internet = 1;
@@ -328,6 +334,8 @@ int main(int argc, char *argv[])
 
 	INIT_LIST_HEAD(g_user_list);
 	
+	ipfw_init(gw_address, gw_port);
+
  	httpd_server_loop(gw_port);
 
 	return 0;
