@@ -16,6 +16,8 @@
 
 #define IPT_ACCOUNT_PROC_NAME			("account")
 #define MAX_IPT_ACCOUNT_TABLE_HOST_NUM	500
+#define MAX_AGING_TIME					(10 * 60) // 10 minutes
+
 #define HIPQUAD(addr) \
        ((unsigned char *)&addr)[3], \
        ((unsigned char *)&addr)[2], \
@@ -45,7 +47,7 @@ struct t_account_table{
 	uint32_t network;						//网络号
 	uint32_t netmask;						//子网掩码
 	struct timespec timespec;				//时间戳
-	uint64_t zero_time;						//表数据归零时间
+	uint64_t aging_time;						//表数据归零时间
 	uint8_t	limit_direction;				//限制数据流量方向
 	uint8_t signal_flag;					//信号标识
 	uint64_t limit_size;					//表数据限制流量大小
@@ -76,7 +78,7 @@ extern int clear_one_table_data(char *name);
 extern int clear_all_table_data(void);
 extern int del_host_from_table(unsigned char *name, unsigned char *macaddr);
 extern int set_limit_size_of_table(uint8_t limit_direction, unsigned char *name, uint64_t size);
-extern int set_zero_time_of_table(unsigned char *name, uint64_t zero_time);
+extern int set_aging_time_of_table(unsigned char *name, uint64_t aging_time);
 extern int get_account_data_of_table(unsigned char *name, struct traffic_meter_info *data);
 extern int get_table_name_list(unsigned char *data, int data_len);
 extern int sync_data_of_table(struct account_handle_sockopt handle);

@@ -191,7 +191,7 @@ static int ipt_account_table_init(struct xt_match_ipt_account *match)
 	table->limit_direction = NOT_LIMIT;
 	table->signal_flag = 1;
 	table->limit_size = 0;
-	table->zero_time = 0;
+	table->aging_time = MAX_AGING_TIME;
 	
 	memset(&table->s, 0x0, sizeof(struct t_account_host));
 	memset(&table->d, 0x0, sizeof(struct t_account_host));

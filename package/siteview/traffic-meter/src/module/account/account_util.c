@@ -224,17 +224,17 @@ int set_limit_size_of_table(uint8_t limit_direction, unsigned char *name, uint64
 	return -1;
 }
 
-int set_zero_time_of_table(unsigned char *name, uint64_t zero_time)
+int set_aging_time_of_table(unsigned char *name, uint64_t aging_time)
 {
 	struct t_account_table *table = NULL;
 
-	ACCOUNT_DEBUG_PRINTK("zero_time = %llu\n", zero_time);
+	ACCOUNT_DEBUG_PRINTK("aging_time = %llu\n", aging_time);
 	
 	table = find_account_table_by_name(name);
 	if(table != NULL)
 	{
 	  	write_lock_bh(&table->table_lock);
-		table->zero_time= zero_time;
+		table->aging_time = aging_time ? aging_time : MAX_AGING_TIME;
 	  	write_unlock_bh(&table->table_lock);
 		return 0;
 	}

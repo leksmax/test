@@ -14,6 +14,7 @@ data_valume=""
 connect_time_enabled="" 
 connect_time=""
 restart_time=""
+aging_time=0
 show_limit_size=""
 led_enabled="" 
 disconnect_network=""
@@ -31,6 +32,7 @@ get_traffic_config(){
 	config_get connect_time limit connect_time
 	
 	config_get restart_time counter restart_time
+	config_get aging_time counter aging_time
 	
 	config_get show_limit_size action show_limit_size
 	config_get led_enabled action led_enabled
@@ -102,8 +104,13 @@ start_traffic_meter(){
 			/usr/sbin/traffic_meter set limit_not ${table_name} 0
 		fi
 	fi
-	
-	if [ -n "${restart_time}" ]; then
+
+	[ "x${arging_time}" != "x0" ] && {
+		aging_time=$((${aging_time} * 60))
+		/usr/sbin/traffic_meter set aging_time ${table_name} ${aging_time}
+	}
+
+	[ -n "${restart_time}" ] && {
         local day=`echo ${restart_time} | cut -d \  -f 1`
         local time=`echo ${restart_time} | cut -d \  -f 2`
         local hour=`echo ${time} | cut -d \:  -f 1`
@@ -111,17 +118,16 @@ start_traffic_meter(){
 
         zero_sec=$((${day} * 24 * 3600 + ${hour} * 3600 + ${min} * 60))		
 		paramter=${paramter}" -t ${zero_sec}"
-		#/usr/sbin/traffic_meter set zero_time ${table_name} ${zero_sec}
-	fi
+	}
 	
-	if [ -e "/var/run/traffic_meter.pid" ] ; then
+	[ -e "/var/run/traffic_meter.pid" ] && {
 		rm /var/run/traffic_meter.pid
-	fi
+	}
 		
-	if [ -z "`ps | grep "traffic_meter" | grep -v grep`" ]; then 
+	[ -z "`ps | grep "traffic_meter" | grep -v grep`" ] && {
 		#echo "start traffic meter"
 		/usr/sbin/traffic_meter -a ${table_name} ${paramter}
-	fi
+	}
 }
 
 stop_traffic_meter(){	

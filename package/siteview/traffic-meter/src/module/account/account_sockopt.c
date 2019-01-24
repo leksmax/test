@@ -41,9 +41,10 @@ int account_set_ctl(struct sock *sk, int cmd, void *user, unsigned int len)
 			else
 				limit_direction = NOT_LIMIT;
 			
-			ret = set_limit_size_of_table(limit_direction, handle.name, handle.data.size);			
+			ret = set_limit_size_of_table(limit_direction, handle.name, handle.data.size);
 			break;
-		case SOCK_SET_ACCOUNT_ZERO_TIME:
+			
+		case SOCK_SET_ACCOUNT_AGING_TIME:
 			if(len != sizeof(struct account_handle_sockopt))
 			{
 				printk(KERN_ERR "account_set_ctl: wrong data size (%u != %zu) "
@@ -59,8 +60,9 @@ int account_set_ctl(struct sock *sk, int cmd, void *user, unsigned int len)
 				break;
 			}
 
-			ret = set_zero_time_of_table(handle.name, handle.data.size);			
+			ret = set_aging_time_of_table(handle.name, handle.data.size);			
 			break;
+			
 		case SOCK_SET_ACCOUNT_DEL_HOST:
 			if(len != sizeof(struct account_handle_sockopt))
 			{
@@ -78,7 +80,8 @@ int account_set_ctl(struct sock *sk, int cmd, void *user, unsigned int len)
 			}
 
 			ret = del_host_from_table(handle.name, handle.data.macaddr);
-			break;		
+			break;
+			
 		case SOCK_SET_ACCOUNT_CLEAR_ONE_DATA:
 			if(copy_from_user(table_name, user, len))
 			{
@@ -88,9 +91,11 @@ int account_set_ctl(struct sock *sk, int cmd, void *user, unsigned int len)
 			}
 			ret = clear_one_table_data(table_name);
 			break;
+			
 		case SOCK_SET_ACCOUNT_CLEAR_ALL_DATA:
 			ret = clear_all_table_data();
 			break;
+		
 		case SOCK_SET_ACCOUNT_SYNC_ALL_DATA:
 			if (len < sizeof(struct account_handle_sockopt)) 
 			{
@@ -106,6 +111,7 @@ int account_set_ctl(struct sock *sk, int cmd, void *user, unsigned int len)
 			}
 			ret = sync_data_of_table(handle);
 			break;
+			
 		default:
 			printk(KERN_ERR "account_set_ctl: unknown request %i\n", cmd);
 	}

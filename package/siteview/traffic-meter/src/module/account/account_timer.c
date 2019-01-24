@@ -5,19 +5,6 @@
 
 struct timer_list data_traffic_timer;
 
-static uint64_t get_current_time(void)
-{
-	struct timex txc;
-	struct rtc_time tm;
-	
-	do_gettimeofday(&(txc.time));
-	txc.time.tv_sec -= sys_tz.tz_minuteswest * 60;
-	rtc_time_to_tm(txc.time.tv_sec, &tm);
-
-	return (tm.tm_mday * 24 * 3600L + tm.tm_hour * 3600 + tm.tm_min * 60 + tm.tm_sec);
-}
-	
-
 /********************************************************************
   Function:     data_traffic_timer_function
 Description:    zero speed parameters every second, if a hsot doesn't
@@ -25,24 +12,29 @@ Description:    zero speed parameters every second, if a hsot doesn't
 *********************************************************************/
 static void data_traffic_timer_function(unsigned long data)
 {
-#if 0
-	struct list_head *pos;
-	uint64_t now_time = get_current_time();
-
+	struct list_head *pos;	
+	struct timespec now_time = CURRENT_TIME_SEC;
+	
+  	read_lock_bh(&ipt_account_lock);
 	list_for_each(pos, g_lru_table) {
 		struct t_account_table *t = list_entry(pos, struct t_account_table, list);
 		if(t != NULL)
 		{
-			//ACCOUNT_DEBUG_PRINTK("zero_time = %llu, now_time:%llu\n", t->zero_time, now_time);
-			if(t->zero_time != 0 && t->zero_time == now_time)
-			{
-				write_lock_bh(&ipt_account_lock);
-				clear_table_data(t);
-				write_unlock_bh(&ipt_account_lock);
-			} 
+			struct list_head *pos1, *n;
+			write_lock_bh(&t->host_lock);
+			list_for_each_safe(pos1, n, &t->host_list_head){
+				struct t_account_host *h = list_entry(pos1, struct t_account_host, list);
+				ACCOUNT_DEBUG_PRINTK("ip = 0x%x nowspec = %ld, aging_time = %llu\n", h->ipaddr, (now_time.tv_sec - h->timespec.tv_sec), t->aging_time);
+				if( (now_time.tv_sec - h->timespec.tv_sec) > t->aging_time )
+				{
+					list_del(pos1);
+					kfree(h);
+				}
+			}
+			write_unlock_bh(&t->host_lock);
 		}
 	}
-#endif
+  	read_unlock_bh(&ipt_account_lock);
 	data_traffic_timer.expires = jiffies + HZ;
 	add_timer(&data_traffic_timer);
 }

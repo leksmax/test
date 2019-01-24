@@ -96,10 +96,10 @@ int  ipt_account_set_not_limit_size_of_table(struct ipt_account_context *ctx)
 				&ctx->handle, sizeof(struct account_handle_sockopt));
 }
 
-/* 设置表定时清除数据时间 */
-int ipt_account_set_zero_time_of_table(struct ipt_account_context *ctx)
+/* 设置表中主机的老化时间 */
+int ipt_account_set_aging_time_of_table(struct ipt_account_context *ctx)
 {
-	return ipt_account_set_sockopt(ctx->sockfd, SOCK_SET_ACCOUNT_ZERO_TIME, 
+	return ipt_account_set_sockopt(ctx->sockfd, SOCK_SET_ACCOUNT_AGING_TIME, 
 				&ctx->handle, sizeof(struct account_handle_sockopt));
 }
 

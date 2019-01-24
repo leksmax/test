@@ -22,7 +22,7 @@ struct traffic_stat_t g_stat_data;
 void show_usage(char *name)
 {
 	printf("%s\n"
-		"	[set [limit_all|limit_src|limit_dst name size | zero_time name time]]"
+		"	[set [limit_all|limit_src|limit_dst name size | aging_time name time]]\n"
 		"		set paramter of table\n"
 		"	[get [table_name|table_data name] get data of table\n"
 		"	[clear name] clear all data of table\n"
@@ -265,14 +265,14 @@ int init_sockopt_function(int argc, char *argv[])
 			ret = ipt_account_set_not_limit_size_of_table(&ctx);
 			goto cleanup_ok;
 		}
-		else if(strcmp(argv[2], "zero_time") == 0)
+		else if(strcmp(argv[2], "aging_time") == 0)
 		{
 			if(argv[3] != NULL)
 			{
 				strncpy(ctx.handle.name, argv[3], sizeof(ctx.handle.name));
 				ctx.handle.data.size = atoll(argv[4]);
 			}			
-			ret = ipt_account_set_zero_time_of_table(&ctx);
+			ret = ipt_account_set_aging_time_of_table(&ctx);
 			goto cleanup_ok;
 		}
 		goto cleanup_ok;
@@ -701,16 +701,16 @@ int main(int argc, char *argv[])
 		init_sockopt_function(argc, argv);
 	}
 	else
-	{
+	{	
+		/*参数处理*/
+		handle_paramter(argc, argv);
+
 		if(access(TRAFFIC_METER_PID_FILE, F_OK) == 0)
 		{
 			printf("This process is exist!\n");
 			return 1;
 		}
-	
-		/*参数处理*/
-		handle_paramter(argc, argv);
-		
+
 		if(daemon_flag == 1)
 			daemon(0, 1);
 			
