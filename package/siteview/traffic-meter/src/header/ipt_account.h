@@ -47,7 +47,7 @@ struct t_account_table{
 	uint32_t network;						//网络号
 	uint32_t netmask;						//子网掩码
 	struct timespec timespec;				//时间戳
-	uint64_t aging_time;						//表数据归零时间
+	uint64_t aging_time;					//表中主机老化时间
 	uint8_t	limit_direction;				//限制数据流量方向
 	uint8_t signal_flag;					//信号标识
 	uint64_t limit_size;					//表数据限制流量大小

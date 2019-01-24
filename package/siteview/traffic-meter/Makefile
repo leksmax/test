@@ -125,8 +125,11 @@ define Package/traffic-meter/install
 	$(INSTALL_DATA) ./files/traffic_meter.config $(1)/etc/config/traffic
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/traffic_meter.init $(1)/etc/init.d/traffic_init
+	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_DATA) ./files/traffic_meter.defaults $(1)/etc/uci-defaults/99-traffic
 	$(INSTALL_DIR) $(1)/lib/traffic
 	$(INSTALL_BIN) ./files/traffic_meter.script $(1)/lib/traffic/
+	$(INSTALL_DATA) ./files/firewall.include $(1)/lib/traffic/
 endef
 
 $(eval $(call KernelPackage,ipt-maccount))

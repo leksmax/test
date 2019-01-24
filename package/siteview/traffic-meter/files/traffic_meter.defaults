@@ -1,0 +1,13 @@
+#!/bin/sh
+
+uci -q batch <<-EOT
+	delete firewall.traffic_meter
+	set firewall.traffic_meter=include
+	set firewall.traffic_meter.type=script
+	set firewall.traffic_meter.path=/lib/traffic/firewall.include
+	set firewall.traffic_meter.family=any
+	set firewall.traffic_meter.reload=1
+	commit firewall
+EOT
+
+exit 0
